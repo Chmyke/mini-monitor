@@ -8,19 +8,21 @@ region with what the screen shows, and only the changed rectangles are sent.
 
 from __future__ import annotations
 
+import logging
 import math
 import threading
 import time
 from dataclasses import dataclass, fields
 from datetime import datetime, timezone
+from typing import Callable
 
-from PIL import Image, ImageChops
 
 from . import fmt, theme, usage
 from .auth import TokenSource
 from .i18n import FR, Texts
+from .link import Display, ScreenLink
 from .pc import PcSampler, Snapshot
-from .render import REGIONS, Ring, View, render
+from .render import Ring, View, render
 
 TICK = 0.1  # seconds between frames
 PC_PERIOD = 1.0
@@ -30,20 +32,12 @@ GLOW_SECONDS = 1.5
 BREATH_SECONDS = 2.4
 SMOOTH_SECONDS = 0.2  # time constant of the PC values' lerp: ~95 % of the way in 0.6 s
 SNAP = 0.05
+# A pause this long means the PC slept: the screen may have reset, reconnect and redraw.
+# Shorter stalls happen when the PC is busy; they are only logged.
+WAKE_GAP_SECONDS = 30.0
+SLOW_TICK_SECONDS = 2.0
 
-
-def changed_boxes(previous: Image.Image | None, current: Image.Image,
-                  regions: dict[str, tuple[int, int, int, int]]) -> list[tuple[int, int, int, int]]:
-    """Smallest rectangles (x0, y0, x1, y1 exclusive) to resend, one per changed region."""
-    if previous is None:
-        return [(0, 0, *current.size)]
-    boxes = []
-    for x0, y0, x1, y1 in regions.values():
-        box = (x0, y0, x1 + 1, y1 + 1)
-        diff = ImageChops.difference(previous.crop(box), current.crop(box)).getbbox()
-        if diff:
-            boxes.append((x0 + diff[0], y0 + diff[1], x0 + diff[2], y0 + diff[3]))
-    return boxes
+log = logging.getLogger(__name__)
 
 
 def ease_out(t: float) -> float:
@@ -112,10 +106,15 @@ class UsagePoller:
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self) -> None:
+        reported = "ok"  # log changes of state only, not every 5 minutes
         while True:
             result = usage.fetch(self._tokens)
             with self._lock:
                 self._usage = result
+            state = "ok" if result else (self._tokens.last_error or "usage request failed")
+            if state != reported:
+                log.log(logging.INFO if state == "ok" else logging.WARNING, "Claude usage: %s", state)
+                reported = state
             self._wake.wait(self._period)
             self._wake.clear()
 
@@ -127,19 +126,23 @@ class UsagePoller:
         self._wake.set()
 
 
-def run(screen, brightness: int = 60, texts: Texts = FR) -> None:
-    screen.brightness(brightness)
+def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts = FR) -> None:
+    link = ScreenLink(open_display, brightness)
     sampler = PcSampler()
     gpu_label = fmt.short_gpu_name(sampler.gpu_name)
     poller = UsagePoller()
     session, week = Gauge(), Gauge()
-    shown: Image.Image | None = None
     snapshot, displayed, next_pc = None, None, 0.0
     t0 = previous_tick = time.monotonic()
     while True:
         tick = time.monotonic()
+        if tick - previous_tick > WAKE_GAP_SECONDS:
+            log.info("resumed after %.0f s: reconnecting the screen", tick - previous_tick)
+            link.drop()
+            poller.refresh_now()
         if tick >= next_pc:
             snapshot, next_pc = sampler.sample(), tick + PC_PERIOD
+        sampled = time.monotonic()
         displayed = smooth(displayed, snapshot, tick - previous_tick)
         previous_tick = tick
 
@@ -163,7 +166,10 @@ def run(screen, brightness: int = 60, texts: Texts = FR) -> None:
             gpu_label=gpu_label,
         )
         frame = render(view)
-        for x0, y0, x1, y1 in changed_boxes(shown, frame, REGIONS):
-            screen.blit(frame.crop((x0, y0, x1, y1)), x0, y0)
-        shown = frame
-        time.sleep(max(0.0, TICK - (time.monotonic() - tick)))
+        rendered = time.monotonic()
+        link.show(frame)
+        shown = time.monotonic()
+        if shown - tick > SLOW_TICK_SECONDS:
+            log.warning("slow frame %.1f s (sample %.1f, render %.1f, screen %.1f)", shown - tick,
+                        sampled - tick, rendered - sampled, shown - rendered)
+        time.sleep(max(0.0, TICK - (shown - tick)))

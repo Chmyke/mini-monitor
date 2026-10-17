@@ -54,6 +54,23 @@ Close the vendor software first: only one program can talk to the screen at a ti
 | `--port COM3` | serial port (default: detected) |
 | `--preview file.png` | draw one frame with live data to a PNG, without the screen |
 
+Stop it with Ctrl+C.
+
+## Start with Windows
+
+```
+powershell -ExecutionPolicy Bypass -File install-startup.ps1
+```
+
+This registers a scheduled task, *Mini Monitor*, that starts at logon without a console window
+and without administrator rights (options: `-Lang en`, `-Brightness 40`; remove it with
+`-Uninstall`). It survives the screen being unplugged, a USB reset or the PC going to sleep: the
+screen is reopened every few seconds and redrawn whole. A second copy waits a few seconds, then
+gives up, since only one program can talk to the screen.
+
+What happened is written to `%LOCALAPPDATA%\MiniMonitor\minimonitor.log` (connections, outages,
+token renewals, slow frames; never a token).
+
 ## Privacy
 
 Every 5 minutes, Mini Monitor sends one request, `GET https://api.anthropic.com/api/oauth/usage`,

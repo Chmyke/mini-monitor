@@ -54,6 +54,21 @@ Ferme d'abord le logiciel du fabricant : un seul programme peut parler à l'écr
 | `--port COM3` | port série (détecté par défaut) |
 | `--preview image.png` | dessine une image avec les vraies données, sans l'écran |
 
+## Démarrer avec Windows
+
+```
+powershell -ExecutionPolicy Bypass -File install-startup.ps1
+```
+
+Ce script crée une tâche planifiée, *Mini Monitor*, lancée à l'ouverture de session, sans fenêtre
+ni droits administrateur (options : `-Lang en`, `-Brightness 40` ; `-Uninstall` la retire). Elle
+résiste au débranchement de l'écran, à une réinitialisation USB et à la mise en veille : l'écran
+est rouvert toutes les quelques secondes puis redessiné en entier. Une deuxième copie attend
+quelques secondes puis renonce, puisqu'un seul programme peut parler à l'écran.
+
+Le journal est dans `%LOCALAPPDATA%\MiniMonitor\minimonitor.log` (connexions, coupures,
+renouvellements du jeton, images lentes ; jamais un jeton).
+
 ## Vie privée
 
 Toutes les 5 minutes, Mini Monitor envoie une requête, `GET https://api.anthropic.com/api/oauth/usage`,

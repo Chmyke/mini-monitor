@@ -3,7 +3,8 @@ from datetime import datetime, timedelta, timezone
 
 from PIL import Image
 
-from minimonitor.app import RING_FILL_SECONDS, SMOOTH_SECONDS, Gauge, approach, changed_boxes, fresh, smooth
+from minimonitor.app import RING_FILL_SECONDS, SMOOTH_SECONDS, Gauge, approach, fresh, smooth
+from minimonitor.link import changed_boxes
 from minimonitor.pc import Snapshot
 from minimonitor.usage import Window
 

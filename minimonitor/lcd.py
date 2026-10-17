@@ -86,9 +86,14 @@ class Screen:
         port = port or find_port()
         if port is None:
             raise RuntimeError("screen not found (USB 1A86:5722)")
-        self._serial = serial.Serial(port, 115200, timeout=1, rtscts=True)
+        # write_timeout: a screen gone mid-write raises instead of blocking forever.
+        self._serial = serial.Serial(port, 115200, timeout=1, write_timeout=5, rtscts=True)
         self.orientation = orientation
-        self._serial.write(pack_orientation(orientation))
+        try:
+            self._serial.write(pack_orientation(orientation))
+        except Exception:
+            self._serial.close()
+            raise
 
     @property
     def size(self) -> tuple[int, int]:
