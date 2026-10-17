@@ -59,7 +59,9 @@ If yours works (or doesn't), please open an issue: the table will say so.
 
 ## Install
 
-Windows:
+[Download Mini Monitor](https://mickaelmancini.com/mini-monitor/download) (a ZIP of the latest
+code), extract it and open a terminal in the folder. With git:
+`git clone https://github.com/Chmyke/mini-monitor`. Then, on Windows:
 
 ```
 py -3.11 -m venv .venv
