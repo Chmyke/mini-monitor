@@ -59,11 +59,18 @@ def single_instance(wait_seconds: float = 15):
 def main() -> None:
     parser = argparse.ArgumentParser(prog="minimonitor")
     parser.add_argument("--preview", metavar="PNG", help="render one frame with live data to a PNG and exit")
+    parser.add_argument("--demo", metavar="DIR", help="write demo pictures (made-up values) to DIR and exit")
     parser.add_argument("--port", help="serial port (default: auto-detect)")
     parser.add_argument("--brightness", type=int, default=60)
     parser.add_argument("--lang", choices=sorted(LANGUAGES), default="fr", help="screen language")
     args = parser.parse_args()
     texts = LANGUAGES[args.lang]
+
+    if args.demo:
+        from .demo import write_demo
+        for path in write_demo(args.demo, texts, args.lang):
+            print(path)
+        return
 
     if args.preview:
         from .preview import write_preview

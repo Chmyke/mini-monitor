@@ -71,6 +71,11 @@ class Gauge:
         return max(0.0, 1 - age / GLOW_SECONDS) if self.has_value else 0.0
 
 
+def pulse(seconds: float) -> float:
+    """Breathing of the live dot: 0..1, one breath every BREATH_SECONDS."""
+    return 0.5 - 0.5 * math.cos(2 * math.pi * seconds / BREATH_SECONDS)
+
+
 def approach(current: float | None, target: float | None, dt: float, tau: float = SMOOTH_SECONDS) -> float | None:
     """Exponential lerp toward target; snaps once close so the frame stops changing."""
     if current is None or target is None:
@@ -157,7 +162,7 @@ def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts 
 
         view = View(
             now=now,
-            pulse=0.5 - 0.5 * math.cos(2 * math.pi * (tick - t0) / BREATH_SECONDS),
+            pulse=pulse(tick - t0),
             live=s is not None or w is not None,
             session=Ring(s, session.shown(tick), session.glow(tick), theme.BLUE, texts.session),
             week=Ring(w, week.shown(tick), week.glow(tick), theme.GREEN, texts.week),

@@ -6,7 +6,7 @@ A small, quiet dashboard for the 3.5" USB screen sold as **Turing Smart Screen**
 **UsbMonitor**, written to replace the vendor software. The left half shows your **Claude plan
 usage**; the right half shows the PC.
 
-![Mini Monitor on the 3.5" screen: two rings for the Claude 5-hour session and week, then GPU, CPU, memory, disk and network](docs/screen-en.png)
+![Mini Monitor on the 3.5" screen: two rings for the Claude 5-hour session and week, then GPU, CPU, memory, disk and network](docs/screen-en.webp)
 
 - **Claude first.** Two rings for the 5-hour session and the week, with the time left before each
   reset. Numbers turn amber from 75 % and red from 90 %.
@@ -53,6 +53,7 @@ Close the vendor software first: only one program can talk to the screen at a ti
 | `--brightness 0-100` | backlight (default 60) |
 | `--port COM3` | serial port (default: detected) |
 | `--preview file.png` | draw one frame with live data to a PNG, without the screen |
+| `--demo folder` | write the demo picture and animation (made-up values) used here |
 
 Stop it with Ctrl+C.
 

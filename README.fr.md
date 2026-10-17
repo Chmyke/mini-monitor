@@ -6,7 +6,7 @@ Un petit tableau de bord sobre pour l'écran USB de 3,5" vendu sous les noms **T
 Screen** ou **UsbMonitor**, écrit pour remplacer le logiciel du fabricant. À gauche, la
 **consommation de ton abonnement Claude** ; à droite, le PC.
 
-![Mini Monitor sur l'écran de 3,5" : deux anneaux pour la session de 5 h et la semaine Claude, puis carte graphique, processeur, mémoire, disque et réseau](docs/screen-fr.png)
+![Mini Monitor sur l'écran de 3,5" : deux anneaux pour la session de 5 h et la semaine Claude, puis carte graphique, processeur, mémoire, disque et réseau](docs/screen-fr.webp)
 
 - **Claude en vedette.** Deux anneaux pour la session de 5 h et la semaine, avec le temps restant
   avant chaque remise à zéro. Ambre dès 75 %, rouge dès 90 %.
@@ -53,6 +53,7 @@ Ferme d'abord le logiciel du fabricant : un seul programme peut parler à l'écr
 | `--brightness 0-100` | rétroéclairage (60 par défaut) |
 | `--port COM3` | port série (détecté par défaut) |
 | `--preview image.png` | dessine une image avec les vraies données, sans l'écran |
+| `--demo dossier` | écrit l'image et l'animation de démonstration (valeurs inventées) |
 
 ## Démarrer avec Windows
 
