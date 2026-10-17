@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from PIL import Image, ImageChops
 
 from . import fmt, theme, usage
+from .auth import TokenSource
 from .i18n import FR, Texts
 from .pc import PcSampler, Snapshot
 from .render import REGIONS, Ring, View, render
@@ -107,11 +108,12 @@ class UsagePoller:
         self._lock = threading.Lock()
         self._usage: usage.Usage | None = None
         self._wake = threading.Event()
+        self._tokens = TokenSource()  # one owner: only this thread renews the token
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self) -> None:
         while True:
-            result = usage.fetch()
+            result = usage.fetch(self._tokens)
             with self._lock:
                 self._usage = result
             self._wake.wait(self._period)

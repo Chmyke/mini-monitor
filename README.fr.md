@@ -56,13 +56,15 @@ Ferme d'abord le logiciel du fabricant : un seul programme peut parler à l'écr
 
 ## Vie privée
 
-La seule requête réseau est `GET https://api.anthropic.com/api/oauth/usage`, toutes les 5 minutes,
-avec ton jeton Claude. Le jeton n'est jamais affiché, journalisé ni écrit. Cette adresse est celle
-qu'utilise Claude Code ; elle n'est pas documentée et peut changer : les anneaux afficheraient
-alors « ? ».
+Toutes les 5 minutes, Mini Monitor envoie une requête, `GET https://api.anthropic.com/api/oauth/usage`,
+avec ton jeton Claude. Peu avant son expiration, il le renouvelle comme le fait Claude Code
+(`POST https://platform.claude.com/v1/oauth/token`) et réécrit les nouveaux jetons dans
+`~/.claude/.credentials.json`, de façon atomique, sans toucher au reste du fichier. Les jetons ne
+sont jamais affichés ni journalisés. Rien d'autre ne sort du PC.
 
-Mini Monitor ne fait que lire le jeton. S'il expire, reconnecte-toi avec Claude Code (le
-renouvellement automatique est prévu).
+Ces adresses sont celles de Claude Code ; elles ne sont pas documentées et peuvent changer : les
+anneaux afficheraient alors « ? ». Si le renouvellement lui-même expire, reconnecte-toi avec
+`claude auth login`.
 
 ## Vérifier
 

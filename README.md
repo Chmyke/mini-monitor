@@ -56,12 +56,14 @@ Close the vendor software first: only one program can talk to the screen at a ti
 
 ## Privacy
 
-The only network request is `GET https://api.anthropic.com/api/oauth/usage`, every 5 minutes,
-with your Claude token. The token is never printed, logged or written. This endpoint is the one
-Claude Code uses; it is not documented and may change, in which case the rings show `?`.
+Every 5 minutes, Mini Monitor sends one request, `GET https://api.anthropic.com/api/oauth/usage`,
+with your Claude token. Shortly before the token expires, it renews it the way Claude Code does
+(`POST https://platform.claude.com/v1/oauth/token`) and writes the new tokens back to
+`~/.claude/.credentials.json`, atomically, leaving every other entry of that file untouched.
+Tokens are never printed nor logged. Nothing else leaves your PC.
 
-Mini Monitor only reads the token. If it expires, sign in again with Claude Code
-(automatic renewal is planned).
+These endpoints are the ones Claude Code uses; they are not documented and may change, in which
+case the rings show `?`. If the renewal itself expires, sign in again with `claude auth login`.
 
 ## Develop
 

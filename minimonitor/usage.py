@@ -8,12 +8,13 @@ never a stale number. Tokens are never printed nor logged.
 from __future__ import annotations
 
 import json
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 
-CREDENTIALS = Path.home() / ".claude" / ".credentials.json"
+from .auth import TokenSource
+
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 
 
@@ -63,25 +64,29 @@ def parse(body: dict) -> Usage:
     return Usage(session, week)
 
 
-def read_access_token(path: Path | None = None) -> str | None:
-    try:
-        data = json.loads((path or CREDENTIALS).read_text(encoding="utf-8"))
-        return data["claudeAiOauth"]["accessToken"]
-    except (OSError, ValueError, KeyError, TypeError):
-        return None
-
-
-def fetch(timeout: float = 10) -> Usage | None:
-    token = read_access_token()
-    if not token:
-        return None
+def _get(token: str, timeout: float) -> dict:
     req = urllib.request.Request(USAGE_URL, headers={
         "Authorization": f"Bearer {token}",
         "anthropic-beta": "oauth-2025-04-20",
         "User-Agent": "mini-monitor",
     })
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.load(resp)
+
+
+def fetch(tokens: TokenSource | None = None, timeout: float = 10) -> Usage | None:
+    tokens = tokens or TokenSource()
+    token = tokens.access_token()
+    if not token:
+        return None
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return parse(json.load(resp))
+        try:
+            return parse(_get(token, timeout))
+        except urllib.error.HTTPError as e:
+            if e.code != 401:
+                raise
+            # Rejected before its expiry date (revoked, or renewed elsewhere): renew once.
+            token = tokens.access_token(rejected=token)
+            return parse(_get(token, timeout)) if token else None
     except Exception:  # network, HTTP or JSON error: the screen shows '?'
         return None

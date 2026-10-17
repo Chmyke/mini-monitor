@@ -2,7 +2,7 @@
 import json
 from datetime import datetime, timezone
 
-from minimonitor import usage
+from minimonitor import auth, usage
 
 LIMITS_BODY = {
     "five_hour": {"utilization": 11.0, "resets_at": "2026-10-17T00:00:00+00:00"},
@@ -42,7 +42,8 @@ def test_fetch_without_credentials_is_unknown():
     assert usage.fetch(timeout=1) is None
 
 
-def test_fetch_failure_is_unknown(isolated_state):
-    usage.CREDENTIALS.write_text(json.dumps({"claudeAiOauth": {"accessToken": "fake"}}), encoding="utf-8")
-    assert usage.read_access_token() == "fake"
+def test_fetch_failure_is_unknown():
+    far = 4_000_000_000_000  # year 2096: no renewal attempted
+    oauth = {"accessToken": "fake", "refreshToken": "r", "expiresAt": far}
+    auth.CREDENTIALS.write_text(json.dumps({"claudeAiOauth": oauth}), encoding="utf-8")
     assert usage.fetch(timeout=1) is None  # endpoint redirected to a closed local port
