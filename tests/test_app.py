@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 
 from PIL import Image
 
-from minimonitor.app import Gauge, RING_FILL_SECONDS, changed_boxes, fresh
+from minimonitor.app import RING_FILL_SECONDS, SMOOTH_SECONDS, Gauge, approach, changed_boxes, fresh, smooth
+from minimonitor.pc import Snapshot
 from minimonitor.usage import Window
 
 REGIONS = {"a": (10, 10, 49, 49), "b": (100, 0, 199, 99)}
@@ -46,3 +47,19 @@ def test_reset_time_passed_means_unknown():
     assert fresh(Window(50, now + timedelta(seconds=1)), now) is not None
     assert fresh(Window(50, None), now) is not None
     assert fresh(None, now) is None
+
+
+def test_approach_glides_then_snaps():
+    assert approach(None, 50, 0.1) == 50  # first value: no lerp from nothing
+    assert approach(10, None, 0.1) is None  # unknown stays unknown, never stale
+    mid = approach(0, 100, SMOOTH_SECONDS)
+    assert 60 < mid < 65  # 1 - 1/e of the way after one time constant
+    assert approach(0, 100, 10 * SMOOTH_SECONDS) == 100  # snapped, frame stops changing
+
+
+def test_smooth_snapshot_field_by_field():
+    a = Snapshot(40, 0, 0, 10, 64, 50, 0, 0)
+    b = Snapshot(None, 100, 100, 10, 64, 50, 1e6, 0)
+    s = smooth(a, b, 0.1)
+    assert s.gpu_temp is None and 0 < s.cpu < 100 and s.mem_used_gb == 10
+    assert smooth(None, b, 0.1) == b

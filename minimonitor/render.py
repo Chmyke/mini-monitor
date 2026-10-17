@@ -102,7 +102,7 @@ def _ring(img: Image.Image, d: ImageDraw.ImageDraw, ring: Ring, cy: int, now: da
     shown = ring.shown if known else 0
     img.paste(_ring_image(round(shown * 10), color),
               (RING_CENTER_X - RING_DIAMETER // 2, cy - RING_DIAMETER // 2))
-    number = fmt.percent(ring.window.percent) if known else "?"
+    number = fmt.percent(shown) if known else "?"  # counts along with the ring fill
     number_color = mix(theme.TEXT, color, ring.glow) if known else theme.LABEL
     d.text((RING_CENTER_X, cy - 10), number, font=theme.mono(30), fill=number_color, anchor="mm")
     d.text((RING_CENTER_X, cy + 14), ring.title, font=theme.sans(11), fill=theme.LABEL, anchor="mm")

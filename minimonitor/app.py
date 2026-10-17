@@ -10,13 +10,13 @@ from __future__ import annotations
 import math
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import datetime, timezone
 
 from PIL import Image, ImageChops
 
 from . import theme, usage
-from .pc import PcSampler
+from .pc import PcSampler, Snapshot
 from .render import REGIONS, Ring, View, render
 
 TICK = 0.1  # seconds between frames
@@ -25,6 +25,8 @@ USAGE_PERIOD = 300.0
 RING_FILL_SECONDS = 1.2
 GLOW_SECONDS = 1.5
 BREATH_SECONDS = 2.4
+SMOOTH_SECONDS = 0.2  # time constant of the PC values' lerp: ~95 % of the way in 0.6 s
+SNAP = 0.05
 
 
 def changed_boxes(previous: Image.Image | None, current: Image.Image,
@@ -72,6 +74,22 @@ class Gauge:
         return max(0.0, 1 - age / GLOW_SECONDS) if self.has_value else 0.0
 
 
+def approach(current: float | None, target: float | None, dt: float, tau: float = SMOOTH_SECONDS) -> float | None:
+    """Exponential lerp toward target; snaps once close so the frame stops changing."""
+    if current is None or target is None:
+        return target
+    value = target + (current - target) * math.exp(-max(dt, 0.0) / tau)
+    return target if abs(value - target) < SNAP else value
+
+
+def smooth(shown: Snapshot | None, target: Snapshot | None, dt: float) -> Snapshot | None:
+    """PC values glide to each new sample instead of jumping."""
+    if shown is None or target is None:
+        return target
+    return Snapshot(**{f.name: approach(getattr(shown, f.name), getattr(target, f.name), dt)
+                       for f in fields(Snapshot)})
+
+
 def fresh(window: usage.Window | None, now: datetime) -> usage.Window | None:
     """A window whose reset time has passed holds a stale percentage: treat it as unknown."""
     if window is None or (window.resets_at is not None and window.resets_at <= now):
@@ -111,12 +129,14 @@ def run(screen, brightness: int = 60) -> None:
     poller = UsagePoller()
     session, week = Gauge(), Gauge()
     shown: Image.Image | None = None
-    snapshot, next_pc = None, 0.0
-    t0 = time.monotonic()
+    snapshot, displayed, next_pc = None, None, 0.0
+    t0 = previous_tick = time.monotonic()
     while True:
         tick = time.monotonic()
         if tick >= next_pc:
             snapshot, next_pc = sampler.sample(), tick + PC_PERIOD
+        displayed = smooth(displayed, snapshot, tick - previous_tick)
+        previous_tick = tick
 
         now = datetime.now(timezone.utc)
         latest = poller.latest()
@@ -133,7 +153,7 @@ def run(screen, brightness: int = 60) -> None:
             live=s is not None or w is not None,
             session=Ring(s, session.shown(tick), session.glow(tick), theme.BLUE, "SESSION 5 H"),
             week=Ring(w, week.shown(tick), week.glow(tick), theme.GREEN, "SEMAINE"),
-            pc=snapshot,
+            pc=displayed,
         )
         frame = render(view)
         for x0, y0, x1, y1 in changed_boxes(shown, frame, REGIONS):
