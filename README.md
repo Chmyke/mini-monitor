@@ -1,6 +1,6 @@
 # Mini Monitor
 
-*[Version française](README.fr.md)*
+*[Version française](README.fr.md) · [Website](https://mickaelmancini.com/mini-monitor/en/)*
 
 A small, quiet dashboard for the 3.5" USB screen sold as **Turing Smart Screen** or
 **UsbMonitor**, written to replace the vendor software. The left half shows your **Claude plan

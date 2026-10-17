@@ -1,6 +1,6 @@
 # Mini Monitor
 
-*[English version](README.md)*
+*[English version](README.md) · [Site](https://mickaelmancini.com/mini-monitor/)*
 
 Un petit tableau de bord sobre pour l'écran USB de 3,5" vendu sous les noms **Turing Smart
 Screen** ou **UsbMonitor**, écrit pour remplacer le logiciel du fabricant. À gauche, la
