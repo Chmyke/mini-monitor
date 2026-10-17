@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """PC metrics: psutil for CPU, memory, disk and network; NVML for the GPU."""
 
 from __future__ import annotations
@@ -29,10 +30,13 @@ class PcSampler:
     def __init__(self, disk_path: str = "C:\\"):
         self._disk_path = disk_path
         self._gpu = None
+        self.gpu_name: str | None = None
         if pynvml is not None:
             try:
                 pynvml.nvmlInit()
                 self._gpu = pynvml.nvmlDeviceGetHandleByIndex(0)
+                name = pynvml.nvmlDeviceGetName(self._gpu)
+                self.gpu_name = name.decode() if isinstance(name, bytes) else name
             except pynvml.NVMLError:
                 self._gpu = None
         psutil.cpu_percent(None)  # first call primes the counter

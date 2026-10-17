@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Layout A, "Claude en vedette": draws a full 480x320 frame from a View.
 
 The renderer only draws; it computes nothing. Regions name the rectangles that
@@ -14,6 +15,7 @@ from functools import lru_cache
 from PIL import Image, ImageDraw
 
 from . import fmt, theme
+from .i18n import Texts
 from .pc import Snapshot
 from .usage import Window
 
@@ -59,6 +61,8 @@ class View:
     session: Ring
     week: Ring
     pc: Snapshot | None
+    texts: Texts
+    gpu_label: str  # e.g. 'GPU 4080 S'
 
 
 def mix(a: str, b: str, t: float) -> tuple[int, int, int]:
@@ -96,7 +100,7 @@ def _ring_image(percent_tenths: int, color: str) -> Image.Image:
     return img.resize((RING_DIAMETER, RING_DIAMETER), Image.LANCZOS)
 
 
-def _ring(img: Image.Image, d: ImageDraw.ImageDraw, ring: Ring, cy: int, now: datetime) -> None:
+def _ring(img: Image.Image, d: ImageDraw.ImageDraw, ring: Ring, cy: int, now: datetime, texts: Texts) -> None:
     known = ring.window is not None
     color = fmt.severity_color(ring.window.percent, ring.accent) if known else theme.LABEL
     shown = ring.shown if known else 0
@@ -106,7 +110,7 @@ def _ring(img: Image.Image, d: ImageDraw.ImageDraw, ring: Ring, cy: int, now: da
     number_color = mix(theme.TEXT, color, ring.glow) if known else theme.LABEL
     d.text((RING_CENTER_X, cy - 10), number, font=theme.mono(30), fill=number_color, anchor="mm")
     d.text((RING_CENTER_X, cy + 14), ring.title, font=theme.sans(11), fill=theme.LABEL, anchor="mm")
-    left = fmt.remaining(ring.window.resets_at, now) if known else "?"
+    left = fmt.remaining(ring.window.resets_at, now, texts) if known else "?"
     d.text((RING_CENTER_X, cy + 29), left, font=theme.mono(13), fill=theme.TEXT if known else theme.LABEL,
            anchor="mm")
 
@@ -125,29 +129,29 @@ def _row(d: ImageDraw.ImageDraw, y: int, label: str, value: str, color: str = th
     d.text((ROW_X1, y), value, font=theme.mono(size), fill=color, anchor="rs")
 
 
-def _pc(d: ImageDraw.ImageDraw, pc: Snapshot | None) -> None:
+def _pc(d: ImageDraw.ImageDraw, pc: Snapshot | None, t: Texts, gpu_label: str) -> None:
     unknown = "?"
     if pc is None:
         for y in (40, 108, 156, 204, 256):
             _row(d, y, "…", unknown, theme.LABEL)
         return
     temp = unknown if pc.gpu_temp is None else f"{pc.gpu_temp:.0f}°"
-    _row(d, 40, "GPU 4080 S", temp, fmt.gpu_temp_color(pc.gpu_temp), size=26)
-    _row(d, 62, "utilisation", fmt.percent(pc.gpu_util))
+    _row(d, 40, gpu_label, temp, fmt.gpu_temp_color(pc.gpu_temp), size=26)
+    _row(d, 62, t.usage, fmt.percent(pc.gpu_util))
     _bar(d, 68, pc.gpu_util, fmt.severity_color(pc.gpu_util, theme.BLUE))
 
     _row(d, 108, "CPU", fmt.percent(pc.cpu))
     _bar(d, 116, pc.cpu, fmt.severity_color(pc.cpu, theme.BLUE))
 
     mem_pct = 100 * pc.mem_used_gb / pc.mem_total_gb if pc.mem_total_gb else None
-    _row(d, 156, "Mémoire", f"{pc.mem_used_gb:.0f}/{pc.mem_total_gb:.0f} Go")
+    _row(d, 156, t.memory, f"{pc.mem_used_gb:.0f}/{pc.mem_total_gb:.0f} {t.gigabytes}")
     _bar(d, 164, mem_pct, fmt.severity_color(mem_pct, theme.BLUE))
 
-    _row(d, 204, "Disque C:", fmt.percent(pc.disk))
+    _row(d, 204, f"{t.disk} C:", fmt.percent(pc.disk))
     _bar(d, 212, pc.disk, fmt.severity_color(pc.disk, theme.BLUE))
 
-    _row(d, 256, "Réseau", "↓" + fmt.rate(pc.net_down))
-    _row(d, 280, "", "↑" + fmt.rate(pc.net_up), theme.LABEL)
+    _row(d, 256, t.network, "↓" + fmt.rate(pc.net_down, t))
+    _row(d, 280, "", "↑" + fmt.rate(pc.net_up, t), theme.LABEL)
 
 
 def render(view: View) -> Image.Image:
@@ -160,7 +164,7 @@ def render(view: View) -> Image.Image:
     d.ellipse((18, 20, 26, 28), fill=dot)
     d.text((36, 30), "CLAUDE", font=theme.sans(13), fill=theme.LABEL, anchor="ls")
 
-    _ring(img, d, view.session, RING_CENTERS_Y[0], view.now)
-    _ring(img, d, view.week, RING_CENTERS_Y[1], view.now)
-    _pc(d, view.pc)
+    _ring(img, d, view.session, RING_CENTERS_Y[0], view.now, view.texts)
+    _ring(img, d, view.week, RING_CENTERS_Y[1], view.now, view.texts)
+    _pc(d, view.pc, view.texts, view.gpu_label)
     return img

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Claude plan usage, read from the OAuth usage endpoint used by Claude Code.
 
 The endpoint is undocumented: any failure yields None so the screen shows '?',

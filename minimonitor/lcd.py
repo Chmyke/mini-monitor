@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Minimal driver for the Turing Smart Screen 3.5" (revision A, UsbMonitor firmware).
 
 Protocol reference: github.com/mathoudebine/turing-smart-screen-python

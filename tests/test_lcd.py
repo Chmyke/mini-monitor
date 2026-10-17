@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 from PIL import Image
 
 from minimonitor.lcd import Command, Orientation, pack_command, pack_orientation, to_rgb565le

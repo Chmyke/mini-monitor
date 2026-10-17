@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Main loop: samples the data, animates, and sends only what changed to the screen.
 
 A full frame takes about 1.2 s over USB; a 120x40 patch about 40 ms (measured
@@ -15,7 +16,8 @@ from datetime import datetime, timezone
 
 from PIL import Image, ImageChops
 
-from . import theme, usage
+from . import fmt, theme, usage
+from .i18n import FR, Texts
 from .pc import PcSampler, Snapshot
 from .render import REGIONS, Ring, View, render
 
@@ -123,9 +125,10 @@ class UsagePoller:
         self._wake.set()
 
 
-def run(screen, brightness: int = 60) -> None:
+def run(screen, brightness: int = 60, texts: Texts = FR) -> None:
     screen.brightness(brightness)
     sampler = PcSampler()
+    gpu_label = fmt.short_gpu_name(sampler.gpu_name)
     poller = UsagePoller()
     session, week = Gauge(), Gauge()
     shown: Image.Image | None = None
@@ -151,9 +154,11 @@ def run(screen, brightness: int = 60) -> None:
             now=now,
             pulse=0.5 - 0.5 * math.cos(2 * math.pi * (tick - t0) / BREATH_SECONDS),
             live=s is not None or w is not None,
-            session=Ring(s, session.shown(tick), session.glow(tick), theme.BLUE, "SESSION 5 H"),
-            week=Ring(w, week.shown(tick), week.glow(tick), theme.GREEN, "SEMAINE"),
+            session=Ring(s, session.shown(tick), session.glow(tick), theme.BLUE, texts.session),
+            week=Ring(w, week.shown(tick), week.glow(tick), theme.GREEN, texts.week),
             pc=displayed,
+            texts=texts,
+            gpu_label=gpu_label,
         )
         frame = render(view)
         for x0, y0, x1, y1 in changed_boxes(shown, frame, REGIONS):

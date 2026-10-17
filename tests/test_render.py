@@ -1,8 +1,10 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 from datetime import datetime, timedelta, timezone
 
 from PIL import Image, ImageChops, ImageDraw
 
 from minimonitor import theme
+from minimonitor.i18n import EN, FR
 from minimonitor.pc import Snapshot
 from minimonitor.render import HEIGHT, REGIONS, WIDTH, Ring, View, render
 from minimonitor.usage import Window
@@ -10,13 +12,15 @@ from minimonitor.usage import Window
 NOW = datetime(2026, 10, 17, 12, tzinfo=timezone.utc)
 
 
-def view(pct: float | None, pc: Snapshot | None, pulse: float, glow: float) -> View:
+def view(pct: float | None, pc: Snapshot | None, pulse: float, glow: float, texts=FR) -> View:
     w = Window(pct, NOW + timedelta(hours=1, minutes=29)) if pct is not None else None
     return View(
         now=NOW, pulse=pulse, live=w is not None,
         session=Ring(w, pct or 0, glow, theme.BLUE, "SESSION 5 H"),
         week=Ring(w, pct or 0, glow, theme.GREEN, "SEMAINE"),
         pc=pc,
+        texts=texts,
+        gpu_label="GPU 4080 S",
     )
 
 
@@ -35,6 +39,7 @@ def test_everything_that_changes_stays_inside_regions():
         render(view(0, IDLE, 0, 0)),
         render(view(None, None, 0.5, 0)),
         render(view(77.7, BUSY, 0.2, 0.5)),
+        render(view(12, IDLE, 0.7, 0, EN)),
     ]
     mask = Image.new("L", (WIDTH, HEIGHT), 255)
     draw = ImageDraw.Draw(mask)

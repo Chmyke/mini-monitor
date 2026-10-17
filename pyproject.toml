@@ -2,6 +2,8 @@
 name = "minimonitor"
 version = "0.1.0"
 requires-python = ">=3.11"
+description = "Claude usage and PC dashboard for the Turing Smart Screen 3.5\" USB display"
+license = "GPL-3.0-or-later"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

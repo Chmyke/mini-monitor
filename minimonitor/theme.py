@@ -1,4 +1,5 @@
-"""Palette of the trading robot (GitHub surfaces, Shotoshot accents) and fonts."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Palette (GitHub-like dark surfaces, Shotoshot accents) and fonts."""
 
 from __future__ import annotations
 

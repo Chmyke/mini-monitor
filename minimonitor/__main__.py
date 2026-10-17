@@ -1,8 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Entry point: `python -m minimonitor` drives the screen; `--preview FILE` writes one frame as PNG."""
 
 from __future__ import annotations
 
 import argparse
+
+from .i18n import LANGUAGES
 
 
 def main() -> None:
@@ -10,18 +13,19 @@ def main() -> None:
     parser.add_argument("--preview", metavar="PNG", help="render one frame with live data to a PNG and exit")
     parser.add_argument("--port", help="serial port (default: auto-detect)")
     parser.add_argument("--brightness", type=int, default=60)
+    parser.add_argument("--lang", choices=sorted(LANGUAGES), default="fr", help="screen language")
     args = parser.parse_args()
 
     if args.preview:
         from .preview import write_preview
-        write_preview(args.preview)
+        write_preview(args.preview, LANGUAGES[args.lang])
         return
 
     from .app import run
     from .lcd import Screen
     screen = Screen(args.port)
     try:
-        run(screen, args.brightness)
+        run(screen, args.brightness, LANGUAGES[args.lang])
     finally:
         screen.close()
 

@@ -1,8 +1,10 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from minimonitor import fmt, theme
+from minimonitor.i18n import EN
 
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=timezone.utc)
 
@@ -46,3 +48,19 @@ def test_gpu_temp_color(temp, color):
 def test_percent():
     assert fmt.percent(57.6) == "58%"
     assert fmt.percent(None) == "?"
+
+
+def test_english_units():
+    assert fmt.remaining(NOW + timedelta(days=3, hours=22), NOW, EN) == "3d 22h"
+    assert fmt.rate(2_400_000, EN) == "2.4 MB/s"
+    assert fmt.rate(180_000, EN) == "180 kB/s"
+
+
+@pytest.mark.parametrize("name, label", [
+    ("NVIDIA GeForce RTX 4080 SUPER", "GPU 4080 S"),
+    ("NVIDIA GeForce RTX 3060 Ti", "GPU 3060 Ti"),
+    ("NVIDIA GeForce GTX 1080", "GPU 1080"),
+    (None, "GPU"),
+])
+def test_short_gpu_name(name, label):
+    assert fmt.short_gpu_name(name) == label
