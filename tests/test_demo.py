@@ -17,3 +17,10 @@ def test_demo_files(tmp_path):
     assert Image.open(still).size == (480, 320)
     with Image.open(animation) as im:
         assert im.n_frames == round(demo.SECONDS * demo.FPS)
+
+
+def test_demo_scale_keeps_pixels_square(tmp_path):
+    still, _ = demo.write_demo(str(tmp_path), EN, "en", scale=2)
+    big = Image.open(still)
+    assert big.size == (960, 640)
+    assert big.getpixel((40, 40)) == big.getpixel((41, 41))  # one screen pixel = a 2x2 block

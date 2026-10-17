@@ -60,6 +60,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="minimonitor")
     parser.add_argument("--preview", metavar="PNG", help="render one frame with live data to a PNG and exit")
     parser.add_argument("--demo", metavar="DIR", help="write demo pictures (made-up values) to DIR and exit")
+    parser.add_argument("--scale", type=int, default=1, help="with --demo: enlarge pixels (2 = 960x640)")
     parser.add_argument("--port", help="serial port (default: auto-detect)")
     parser.add_argument("--brightness", type=int, default=60)
     parser.add_argument("--lang", choices=sorted(LANGUAGES), default="fr", help="screen language")
@@ -68,7 +69,7 @@ def main() -> None:
 
     if args.demo:
         from .demo import write_demo
-        for path in write_demo(args.demo, texts, args.lang):
+        for path in write_demo(args.demo, texts, args.lang, args.scale):
             print(path)
         return
 

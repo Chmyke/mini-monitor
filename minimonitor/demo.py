@@ -59,11 +59,16 @@ def frames(texts: Texts, gpu_label: str = "GPU 4080 S") -> list[Image.Image]:
     return out
 
 
-def write_demo(directory: str, texts: Texts, lang: str) -> list[Path]:
-    """Writes screen-<lang>.png (a settled frame) and screen-<lang>.webp (the animation)."""
+def write_demo(directory: str, texts: Texts, lang: str, scale: int = 1) -> list[Path]:
+    """Writes screen-<lang>.png (a settled frame) and screen-<lang>.webp (the animation).
+
+    scale > 1 enlarges every pixel into a square block, so the pictures stay sharp on a web page.
+    """
     out_dir = Path(directory)
     out_dir.mkdir(parents=True, exist_ok=True)
     images = frames(texts)
+    if scale > 1:
+        images = [im.resize((im.width * scale, im.height * scale), Image.NEAREST) for im in images]
     still = out_dir / f"screen-{lang}.png"
     images[round(3.2 * FPS)].save(still, optimize=True)  # rings full, before the glow
     animation = out_dir / f"screen-{lang}.webp"
