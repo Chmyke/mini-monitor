@@ -2,10 +2,15 @@
 # No administrator rights needed. Usage:
 #   powershell -ExecutionPolicy Bypass -File install-startup.ps1              # install and start now
 #   powershell -ExecutionPolicy Bypass -File install-startup.ps1 -Uninstall   # remove
+# Options: -Lang en, -Brightness 40, -Screen turing-5 (see: python -m minimonitor --help),
+# -Portrait (screen standing upright), -Flip (picture upside down).
 param(
     [switch]$Uninstall,
     [string]$Lang = 'fr',
-    [int]$Brightness = 60
+    [int]$Brightness = 60,
+    [string]$Screen = 'auto',
+    [switch]$Portrait,
+    [switch]$Flip
 )
 $ErrorActionPreference = 'Stop'
 $taskName = 'Mini Monitor'
@@ -29,9 +34,12 @@ if (-not (Test-Path $pythonw)) {
     exit 1
 }
 
+$arguments = "-m minimonitor --lang $Lang --brightness $Brightness --screen $Screen"
+if ($Portrait) { $arguments += ' --portrait' }
+if ($Flip) { $arguments += ' --flip' }
+
 $user = "$env:USERDOMAIN\$env:USERNAME"
-$action = New-ScheduledTaskAction -Execute $pythonw `
-    -Argument "-m minimonitor --lang $Lang --brightness $Brightness" -WorkingDirectory $root
+$action = New-ScheduledTaskAction -Execute $pythonw -Argument $arguments -WorkingDirectory $root
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
 $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
 # Runs for as long as the session lasts; restarted if it ever crashes. Priority 5 = normal:
@@ -44,7 +52,7 @@ if ($existing) {
     Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 }
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal `
-    -Settings $settings -Description 'Claude usage and PC dashboard on the 3.5 inch USB screen.' -Force | Out-Null
+    -Settings $settings -Description 'Claude usage and PC dashboard on a small USB screen.' -Force | Out-Null
 Start-ScheduledTask -TaskName $taskName
 Write-Host "Installed task '$taskName' (starts at logon) and started it."
 Write-Host "Log: $env:LOCALAPPDATA\MiniMonitor\minimonitor.log"

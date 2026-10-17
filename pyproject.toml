@@ -1,9 +1,30 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "minimonitor"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.11"
-description = "Claude usage and PC dashboard for the Turing Smart Screen 3.5\" USB display"
+description = "Claude usage and PC dashboard for small USB screens (Turing Smart Screen and others)"
+readme = "README.md"
 license = "GPL-3.0-or-later"
+# Exact versions used for development are pinned in requirements.txt.
+dependencies = [
+    "pyserial>=3.5",
+    "pillow>=10.1",
+    "psutil>=5.9",
+    "nvidia-ml-py>=12",
+]
+
+[project.urls]
+Homepage = "https://github.com/Chmyke/mini-monitor"
+
+[project.scripts]
+minimonitor = "minimonitor.__main__:main"
+
+[tool.setuptools]
+packages = ["minimonitor", "minimonitor.screens"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

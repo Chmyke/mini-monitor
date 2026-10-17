@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import json
+import stat
+import sys
 
 import pytest
 
@@ -131,3 +133,24 @@ def test_unreadable_file_is_no_credentials(tmp_path, bad):
     path = tmp_path / "c.json"
     path.write_text(bad, encoding="utf-8")
     assert auth.load(path) is None
+
+
+def test_claude_config_dir_is_honoured(monkeypatch, tmp_path):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "elsewhere"))
+    assert auth.credentials_path() == tmp_path / "elsewhere" / ".credentials.json"
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR")
+    assert auth.credentials_path().parent.name == ".claude"
+
+
+def test_rewritten_credentials_survive_a_leftover_temp_file(tmp_path):
+    path = tmp_path / "credentials.json"
+    path.with_name(path.name + ".minimonitor.tmp").write_text("stale")
+    auth.write_atomic(path, {"a": 1})
+    assert json.loads(path.read_text()) == {"a": 1}
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
+def test_rewritten_credentials_are_private(tmp_path):
+    path = tmp_path / "credentials.json"
+    auth.write_atomic(path, {"a": 1})
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600

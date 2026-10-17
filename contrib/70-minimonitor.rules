@@ -1,0 +1,17 @@
+# Mini Monitor - lets the logged-in user open the screen's serial port without being
+# in the dialout group, and keeps ModemManager from probing it as a modem.
+# Install:  sudo cp contrib/70-minimonitor.rules /etc/udev/rules.d/
+#           sudo udevadm control --reload && sudo udevadm trigger
+# Then unplug and plug the screen back in.
+
+# Turing Smart Screen 3.5" / UsbMonitor (revision A), XuanFang 3.5" (revision B)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="5722", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1"
+# WeAct Studio Display FS V1 3.5"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="fe0c", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1"
+# Kipye Qiye Smart Display 3.5" (revision D)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="454d", ATTRS{idProduct}=="4e41", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1"
+# Turing Smart Screen 2.1" / 5" / 8.8" (revision C), asleep then awake
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="ca21", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0525", ATTRS{idProduct}=="a4a7", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1d6b", ATTRS{idProduct}=="0121", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1d6b", ATTRS{idProduct}=="0106", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1"

@@ -15,18 +15,21 @@ from typing import Callable, Protocol
 import serial
 from PIL import Image, ImageChops
 
-from .render import REGIONS
-
 RETRY_SECONDS = 3.0
-# RuntimeError: the screen is not plugged in (lcd.Screen cannot find its port).
+# RuntimeError: no screen is plugged in (screens.open_screen cannot find one).
 SCREEN_ERRORS = (serial.SerialException, OSError, RuntimeError)
 
 log = logging.getLogger(__name__)
 
 
 class Display(Protocol):
+    size: tuple[int, int]  # width, height, as the frames must be drawn
+    round: bool  # a round screen: the frame must fit inside the circle
+    description: str  # for the log
+
     def brightness(self, percent: int) -> None: ...
     def blit(self, image: Image.Image, x: int = 0, y: int = 0) -> None: ...
+    def refresh(self) -> None: ...  # once per frame, after the blits
     def close(self) -> None: ...
 
 
@@ -60,12 +63,25 @@ class ScreenLink:
     def connected(self) -> bool:
         return self._display is not None
 
-    def show(self, frame: Image.Image) -> None:
-        if self._display is None and not self._connect():
+    @property
+    def size(self) -> tuple[int, int]:
+        return self._display.size
+
+    @property
+    def round(self) -> bool:
+        return self._display.round
+
+    def ready(self) -> bool:
+        """Connected, or just reconnected: a frame can be drawn for `size` and shown."""
+        return self._display is not None or self._connect()
+
+    def show(self, frame: Image.Image, regions: dict[str, tuple[int, int, int, int]]) -> None:
+        if not self.ready():
             return
         try:
-            for x0, y0, x1, y1 in changed_boxes(self._shown, frame, REGIONS):
+            for x0, y0, x1, y1 in changed_boxes(self._shown, frame, regions):
                 self._display.blit(frame.crop((x0, y0, x1, y1)), x0, y0)
+            self._display.refresh()
             self._shown = frame
         except SCREEN_ERRORS as e:
             log.warning("screen lost: %s", type(e).__name__)
@@ -99,6 +115,6 @@ class ScreenLink:
                 self._reported_down = True
             self._next_try = self._clock() + self._retry
             return False
-        log.info("screen connected")
+        log.info("screen connected: %s", getattr(display, "description", "?"))
         self._display, self._shown, self._reported_down = display, None, False
         return True

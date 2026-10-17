@@ -9,12 +9,13 @@ from datetime import datetime, timezone
 from . import fmt, theme, usage
 from .i18n import FR, Texts
 from .app import fresh
-from .pc import PcSampler
-from .render import Ring, View, render
+from .pc import PcSampler, disk_label
+from .render import Ring, View, render, scene_for
 
 
-def write_preview(path: str, texts: Texts = FR) -> None:
-    sampler = PcSampler()
+def write_preview(path: str, texts: Texts = FR, size: tuple[int, int] = (480, 320),
+                  disk_path: str | None = None) -> None:
+    sampler = PcSampler(disk_path)
     time.sleep(1)  # CPU and network rates need a measurement interval
     now = datetime.now(timezone.utc)
     latest = usage.fetch()
@@ -27,5 +28,6 @@ def write_preview(path: str, texts: Texts = FR) -> None:
         pc=sampler.sample(),
         texts=texts,
         gpu_label=fmt.short_gpu_name(sampler.gpu_name),
+        disk_label=disk_label(sampler.disk_path),
     )
-    render(view).save(path)
+    render(view, scene_for(size)).save(path)

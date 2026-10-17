@@ -21,8 +21,8 @@ from . import fmt, theme, usage
 from .auth import TokenSource
 from .i18n import FR, Texts
 from .link import Display, ScreenLink
-from .pc import PcSampler, Snapshot
-from .render import Ring, View, render
+from .pc import PcSampler, Snapshot, disk_label
+from .render import Ring, View, render, scene_for
 
 TICK = 0.1  # seconds between frames
 PC_PERIOD = 1.0
@@ -131,10 +131,12 @@ class UsagePoller:
         self._wake.set()
 
 
-def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts = FR) -> None:
+def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts = FR,
+        disk_path: str | None = None) -> None:
     link = ScreenLink(open_display, brightness)
-    sampler = PcSampler()
+    sampler = PcSampler(disk_path)
     gpu_label = fmt.short_gpu_name(sampler.gpu_name)
+    disk = disk_label(sampler.disk_path)
     poller = UsagePoller()
     session, week = Gauge(), Gauge()
     snapshot, displayed, next_pc = None, None, 0.0
@@ -169,11 +171,15 @@ def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts 
             pc=displayed,
             texts=texts,
             gpu_label=gpu_label,
+            disk_label=disk,
         )
-        frame = render(view)
-        rendered = time.monotonic()
-        link.show(frame)
-        shown = time.monotonic()
+        rendered = shown = time.monotonic()
+        if link.ready():  # the frame is drawn at the size of whatever screen is connected
+            scene = scene_for(link.size, link.round)
+            frame = render(view, scene)
+            rendered = time.monotonic()
+            link.show(frame, scene.regions)
+            shown = time.monotonic()
         if shown - tick > SLOW_TICK_SECONDS:
             log.warning("slow frame %.1f s (sample %.1f, render %.1f, screen %.1f)", shown - tick,
                         sampled - tick, rendered - sampled, shown - rendered)

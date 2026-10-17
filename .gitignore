@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 CLAUDE.md
 .claude/
+AGENTS.md

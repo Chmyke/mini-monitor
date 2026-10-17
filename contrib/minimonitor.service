@@ -1,0 +1,20 @@
+# Mini Monitor as a systemd user service: starts with your session, restarts if it crashes.
+# Assumes the project is in ~/mini-monitor with its .venv; adjust ExecStart otherwise
+# (installed with pipx: ExecStart=%h/.local/bin/minimonitor --lang en).
+# Install:  mkdir -p ~/.config/systemd/user
+#           cp contrib/minimonitor.service ~/.config/systemd/user/
+#           systemctl --user daemon-reload && systemctl --user enable --now minimonitor
+# Log:      ~/.local/state/minimonitor/minimonitor.log (or: journalctl --user -u minimonitor)
+
+[Unit]
+Description=Mini Monitor: Claude usage and PC dashboard on a small USB screen
+
+[Service]
+WorkingDirectory=%h/mini-monitor
+ExecStart=%h/mini-monitor/.venv/bin/python -m minimonitor --lang en
+Restart=on-failure
+RestartSec=60
+Nice=0
+
+[Install]
+WantedBy=default.target

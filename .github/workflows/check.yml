@@ -1,0 +1,32 @@
+# Runs the unit tests on Windows (through check.ps1, the project's single check) and on
+# Linux. Neither needs a screen, a GPU or a Claude account.
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Create .venv
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python -m pip install -r requirements.txt
+      - name: check.ps1
+        run: powershell -ExecutionPolicy Bypass -File check.ps1
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pytest

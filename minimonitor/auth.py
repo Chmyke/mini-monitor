@@ -17,7 +17,14 @@ import urllib.request
 from pathlib import Path
 from typing import Callable
 
-CREDENTIALS = Path.home() / ".claude" / ".credentials.json"
+
+def credentials_path() -> Path:
+    """Where Claude Code keeps its sign-in: ~/.claude, or $CLAUDE_CONFIG_DIR when set."""
+    config = os.environ.get("CLAUDE_CONFIG_DIR")
+    return (Path(config).expanduser() if config else Path.home() / ".claude") / ".credentials.json"
+
+
+CREDENTIALS = credentials_path()
 TOKEN_URL = "https://platform.claude.com/v1/oauth/token"
 CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"  # Claude Code's public OAuth client
 REFRESH_MARGIN_MS = 10 * 60 * 1000  # renew 10 minutes before expiry
@@ -85,9 +92,14 @@ def apply_response(data: dict, response: dict, now: int) -> dict:
 
 
 def write_atomic(path: Path, data: dict) -> None:
-    """Same compact format as Claude Code; a crash mid-write never leaves a broken file."""
+    """Same compact format as Claude Code; a crash mid-write never leaves a broken file.
+
+    The file holds secrets: on Linux and macOS it is readable by its owner only (0600).
+    """
     tmp = path.with_name(path.name + ".minimonitor.tmp")
-    with open(tmp, "w", encoding="utf-8", newline="") as f:
+    tmp.unlink(missing_ok=True)  # a leftover would keep its old permissions
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
         f.write(json.dumps(data, separators=(",", ":"), ensure_ascii=False))
         f.flush()
         os.fsync(f.fileno())
