@@ -1,6 +1,6 @@
 # Mini Monitor
 
-*[Version française](README.fr.md) · [Website](https://mickaelmancini.com/mini-monitor/en/)*
+*[Version française](README.fr.md) · [Website](https://mickaelmancini.com/mini-monitor/en/) · [What's new](CHANGELOG.md)*
 
 A small, quiet dashboard for the cheap USB screens sold as **Turing Smart Screen**,
 **UsbMonitor**, **XuanFang**, **Kipye** or **WeAct**, written to replace the vendor software, on
@@ -160,6 +160,9 @@ powershell -ExecutionPolicy Bypass -File check.ps1
 ```
 
 On Linux, `.venv/bin/python -m pytest`. Both run on every push (GitHub Actions).
+
+Each version in `pyproject.toml` needs its entry in `changelog.json` (English and French);
+`python tools/changelog.py` then rewrites `CHANGELOG.md`. The tests fail until both are done.
 
 ## Credits
 

@@ -1,6 +1,6 @@
 # Mini Monitor
 
-*[English version](README.md) · [Site](https://mickaelmancini.com/mini-monitor/)*
+*[English version](README.md) · [Site](https://mickaelmancini.com/mini-monitor/) · [Nouveautés](CHANGELOG.md) (en anglais)*
 
 Un petit tableau de bord sobre pour les écrans USB bon marché vendus sous les noms **Turing Smart
 Screen**, **UsbMonitor**, **XuanFang**, **Kipye** ou **WeAct**, écrit pour remplacer le logiciel du
