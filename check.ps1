@@ -16,7 +16,11 @@ Get-ChildItem -Path $root -Filter *.ps1 -Recurse -File | Where-Object { $_.FullN
     if ($bytes | Where-Object { $_ -gt 127 }) { $failed += "non-ASCII: $($_.Name)" }
 }
 
-# 2. Unit tests (isolated from real credentials and from the screen).
+# 2. Interface text carries no long dash (owner rule, 2026-10-21).
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\check-dashes.ps1')
+if ($LASTEXITCODE -ne 0) { $failed += 'long dash in interface text (tools\check-dashes.ps1)' }
+
+# 3. Unit tests (isolated from real credentials and from the screen).
 Push-Location $root
 try {
     & $py -m pytest
