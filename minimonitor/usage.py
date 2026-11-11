@@ -28,6 +28,9 @@ class Window:
 class Usage:
     session: Window | None
     week: Window | None
+    # The weekly limit of the one model that has its own (plans without a session limit).
+    model: Window | None = None
+    model_name: str | None = None
 
 
 def _date(value) -> datetime | None:
@@ -45,11 +48,29 @@ def _window(percent, resets_at) -> Window | None:
     return Window(float(percent), _date(resets_at))
 
 
+def _model_name(item: dict) -> str | None:
+    """The display name of the model a scoped limit applies to, as the server spells it."""
+    scope = item.get("scope")
+    model = scope.get("model") if isinstance(scope, dict) else None
+    name = model.get("display_name") if isinstance(model, dict) else None
+    return name.strip() if isinstance(name, str) and name.strip() else None
+
+
 def parse(body: dict) -> Usage:
-    """Accept both response shapes: the `limits` list, then the legacy windows."""
-    session = week = None
+    """Accept both response shapes: the `limits` list, then the legacy windows.
+
+    The model limit is the first `weekly_scoped` entry that names a model: its name comes from
+    the server, so the ring follows whichever model is limited next.
+    """
+    session = week = model = model_name = None
     for item in body.get("limits") or []:
         if not isinstance(item, dict):
+            continue
+        if item.get("kind") == "weekly_scoped" and model is None:
+            name = _model_name(item)
+            window = _window(item.get("percent"), item.get("resets_at")) if name else None
+            if window:
+                model, model_name = window, name
             continue
         if item.get("kind") == "session" and session is None:
             session = _window(item.get("percent"), item.get("resets_at"))
@@ -61,7 +82,7 @@ def parse(body: dict) -> Usage:
     if week is None:
         seven = body.get("seven_day") or {}
         week = _window(seven.get("utilization"), seven.get("resets_at"))
-    return Usage(session, week)
+    return Usage(session, week, model, model_name)
 
 
 def _get(token: str, timeout: float) -> dict:

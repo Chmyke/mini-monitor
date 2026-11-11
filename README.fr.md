@@ -12,7 +12,9 @@ D'un côté, la **consommation de ton abonnement Claude** ; de l'autre, le PC.
 ![Mini Monitor sur l'écran de 3,5" : deux anneaux pour la session de 5 h et la semaine Claude, puis carte graphique, processeur, mémoire, disque et réseau](docs/screen-fr.webp)
 
 - **Claude en vedette.** Deux anneaux pour la session de 5 h et la semaine, avec le temps restant
-  avant chaque remise à zéro. Ambre dès 75 %, rouge dès 90 %.
+  avant chaque remise à zéro. Sur un forfait sans limite de session, le premier anneau montre la
+  limite hebdomadaire du modèle qui a la sienne (Fable aujourd'hui), sous le nom que donne le
+  serveur. Ambre dès 75 %, rouge dès 90 %.
 - **Le PC d'un coup d'œil.** Température et charge de la carte graphique, processeur, mémoire,
   disque et réseau, chacun avec une fine barre. Les valeurs glissent vers chaque nouvelle mesure
   au lieu de sauter.

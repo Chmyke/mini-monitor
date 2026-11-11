@@ -99,6 +99,24 @@ def fresh(window: usage.Window | None, now: datetime) -> usage.Window | None:
     return window
 
 
+def first_ring(latest: usage.Usage | None, now: datetime, texts: Texts) -> tuple[usage.Window | None, str]:
+    """What the first ring shows: the session limit when the plan has one, else the model limit."""
+    if latest is None:
+        return None, texts.session
+    if latest.session is not None:
+        return fresh(latest.session, now), texts.session
+    if latest.model is not None:
+        return fresh(latest.model, now), (latest.model_name or texts.model).upper()
+    return None, texts.session
+
+
+def stale(latest: usage.Usage | None, now: datetime) -> bool:
+    """True when a window was read but its reset time has passed: ask for a new reading."""
+    if latest is None:
+        return False
+    return any(w is not None and fresh(w, now) is None for w in (latest.session, latest.model, latest.week))
+
+
 class UsagePoller:
     """Fetches Claude usage in the background so a slow network never freezes the screen."""
 
@@ -155,9 +173,9 @@ def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts 
 
         now = datetime.now(timezone.utc)
         latest = poller.latest()
-        s = fresh(latest.session, now) if latest else None
+        s, first_label = first_ring(latest, now, texts)
         w = fresh(latest.week, now) if latest else None
-        if latest and (latest.session and s is None or latest.week and w is None):
+        if stale(latest, now):
             poller.refresh_now()
         session.set(s.percent if s else None, tick)
         week.set(w.percent if w else None, tick)
@@ -166,7 +184,7 @@ def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts 
             now=now,
             pulse=pulse(tick - t0),
             live=s is not None or w is not None,
-            session=Ring(s, session.shown(tick), session.glow(tick), theme.BLUE, texts.session),
+            session=Ring(s, session.shown(tick), session.glow(tick), theme.BLUE, first_label),
             week=Ring(w, week.shown(tick), week.glow(tick), theme.GREEN, texts.week),
             pc=displayed,
             texts=texts,

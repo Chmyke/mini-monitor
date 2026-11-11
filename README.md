@@ -12,7 +12,9 @@ Windows and Linux. No screen? It also runs in a window on the desktop. One half 
 ![Mini Monitor on the 3.5" screen: two rings for the Claude 5-hour session and week, then GPU, CPU, memory, disk and network](docs/screen-en.webp)
 
 - **Claude first.** Two rings for the 5-hour session and the week, with the time left before each
-  reset. Numbers turn amber from 75 % and red from 90 %.
+  reset. On a plan without a session limit, the first ring shows the weekly limit of the model
+  that has its own (Fable today), under the name the server gives it. Numbers turn amber from
+  75 % and red from 90 %.
 - **The PC at a glance.** GPU temperature and load, CPU, memory, disk and network, each with a
   thin bar. Values glide to each new sample instead of jumping.
 - **Honest.** An unknown value is a grey `?`, never a stale number: if the usage request fails or

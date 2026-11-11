@@ -3,10 +3,11 @@ from datetime import datetime, timedelta, timezone
 
 from PIL import Image
 
-from minimonitor.app import RING_FILL_SECONDS, SMOOTH_SECONDS, Gauge, approach, fresh, smooth
+from minimonitor.app import RING_FILL_SECONDS, SMOOTH_SECONDS, Gauge, approach, first_ring, fresh, smooth, stale
+from minimonitor.i18n import FR
 from minimonitor.link import changed_boxes
 from minimonitor.pc import Snapshot
-from minimonitor.usage import Window
+from minimonitor.usage import Usage, Window
 
 REGIONS = {"a": (10, 10, 49, 49), "b": (100, 0, 199, 99)}
 
@@ -65,3 +66,26 @@ def test_smooth_snapshot_field_by_field():
     s = smooth(a, b, 0.1)
     assert s.gpu_temp is None and 0 < s.cpu < 100 and s.mem_used_gb == 10
     assert smooth(None, b, 0.1) == b
+
+
+def test_first_ring_is_the_session_when_the_plan_has_one():
+    now = datetime(2026, 11, 11, tzinfo=timezone.utc)
+    later = now + timedelta(hours=1)
+    u = Usage(Window(58, later), Window(19, later), Window(7, later), "Fable")
+    assert first_ring(u, now, FR) == (Window(58, later), FR.session)
+
+
+def test_first_ring_is_the_model_limit_without_a_session():
+    now = datetime(2026, 11, 11, tzinfo=timezone.utc)
+    later = now + timedelta(days=6)
+    assert first_ring(Usage(None, Window(4, later), Window(7, later), "Fable"), now, FR) == (Window(7, later), "FABLE")
+    assert first_ring(Usage(None, None, Window(7, now), "Fable"), now, FR) == (None, "FABLE")  # reset passed
+    assert first_ring(None, now, FR) == (None, FR.session)
+
+
+def test_a_passed_reset_asks_for_a_new_reading():
+    now = datetime(2026, 11, 11, tzinfo=timezone.utc)
+    later = now + timedelta(days=1)
+    assert not stale(None, now)
+    assert not stale(Usage(None, Window(4, later), Window(7, later), "Fable"), now)
+    assert stale(Usage(None, Window(4, later), Window(7, now), "Fable"), now)

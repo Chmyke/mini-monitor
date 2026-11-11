@@ -132,7 +132,7 @@ class View:
     now: datetime
     pulse: float  # 0..1, breathing dot opacity
     live: bool  # Claude numbers are fresh
-    session: Ring
+    session: Ring  # first ring: the session limit, or the model limit on plans without one
     week: Ring
     pc: Snapshot | None
     texts: Texts
