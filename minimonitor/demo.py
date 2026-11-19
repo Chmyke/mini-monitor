@@ -13,9 +13,10 @@ from pathlib import Path
 from PIL import Image
 
 from . import theme
-from .app import Gauge, pulse, smooth
+from .app import Gauge, apps_view, pulse, smooth
 from .i18n import Texts
 from .pc import Snapshot
+from .procs import Usage as Apps
 from .render import Ring, View, render, scene_for
 from .usage import Window
 
@@ -27,6 +28,12 @@ WEEK = Window(15, NOW + timedelta(days=3, hours=22, minutes=10))
 SESSION_LATER = Window(47, SESSION.resets_at)  # a new reading, to show the glow
 SESSION_UPDATE_AT = 3.5
 MB = 1_000_000
+GB = 1024 ** 3
+# Who uses the PC in the demo: made-up applications, as the process watcher reports them.
+APPS = Apps(cpu=(("Blender", 8.0), ("Claude", 3.5), ("Chrome", 2.0)),
+            gpu=(("Blender", 22.0), ("Chrome", 4.0)),
+            memory=(("Claude", 9.1 * GB), ("Chrome", 4.2 * GB), ("Blender", 3.0 * GB)),
+            disk=("Blender", 12 * MB))
 
 # One PC sample per second, as the app reads them.
 SAMPLES = [
@@ -42,7 +49,7 @@ SAMPLES = [
 def frames(texts: Texts, gpu_label: str = "GPU 4080 S", size: tuple[int, int] = (480, 320)) -> list[Image.Image]:
     scene = scene_for(size)
     session, week = Gauge(), Gauge()
-    shown_pc = None
+    shown_pc, colors = None, {}
     out = []
     dt = 1 / FPS
     for i in range(round(SECONDS * FPS)):
@@ -51,11 +58,12 @@ def frames(texts: Texts, gpu_label: str = "GPU 4080 S", size: tuple[int, int] = 
         session.set(session_window.percent, t)
         week.set(WEEK.percent, t)
         shown_pc = smooth(shown_pc, SAMPLES[min(int(t), len(SAMPLES) - 1)], dt)
+        apps, colors = apps_view(APPS, shown_pc, colors, texts)
         out.append(render(View(
             now=NOW + timedelta(seconds=t), pulse=pulse(t), live=True,
             session=Ring(session_window, session.shown(t), session.glow(t), theme.BLUE, texts.session),
             week=Ring(WEEK, week.shown(t), week.glow(t), theme.GREEN, texts.week),
-            pc=shown_pc, texts=texts, gpu_label=gpu_label,
+            pc=shown_pc, texts=texts, gpu_label=gpu_label, apps=apps,
         ), scene))
     return out
 

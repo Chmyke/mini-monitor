@@ -34,11 +34,15 @@ BAR_HEIGHT = 6
 DOT = (18, 20, 26, 28)
 # PC rows, as offsets from the top of the PC column: baselines, bars, and the
 # rectangle each row may change in (top, bottom).
-GPU_Y, GPU_USAGE_Y, GPU_BAR_Y = 32, 54, 60
-ROWS_Y = {"cpu": (100, 108), "mem": (148, 156), "disk": (196, 204)}
-NET_Y, NET_UP_Y = 248, 272
-ROW_REGIONS = {"gpu": (6, 70), "cpu": (78, 118), "mem": (126, 166), "disk": (174, 214)}
-NET_REGION, NET_ONE_LINE_REGION = (224, 292), (224, 256)
+# PC rows, as baselines from the top of the PC column, `pc_step` apart: the bar sits BAR_DY
+# below its row and the legend (who fills the bar) LEGEND_DY below; each row may change within
+# ROW_REGION of it. The network line (down and up, no label: arrows and units say it) closes it.
+ROWS = ("gpu", "cpu", "mem", "disk")
+FIRST_ROW_Y = 24
+BAR_DY, LEGEND_DY = 8, 26
+ROW_REGION = (-18, 32)
+NET_DY = 58  # from the last row
+NET_REGION = (-16, 6)
 
 
 @dataclass(frozen=True)
@@ -49,7 +53,15 @@ class Layout:
     rings: tuple[tuple[int, int], tuple[int, int]]  # session and week centres
     pc_x: tuple[int, int]  # left and right edges of the PC rows
     pc_top: int
-    net_one_line: bool  # down and up rates side by side, to save height
+    pc_step: int  # between two PC rows: wider where the column is taller
+
+    @property
+    def rows_y(self) -> dict[str, int]:
+        return {name: FIRST_ROW_Y + i * self.pc_step for i, name in enumerate(ROWS)}
+
+    @property
+    def net_y(self) -> int:
+        return self.rows_y[ROWS[-1]] + NET_DY
 
     @property
     def regions(self) -> dict[str, Box]:
@@ -59,19 +71,19 @@ class Layout:
         for name, (cx, cy) in zip(("session", "week"), self.rings):
             regions[name] = (cx - r, cy - r, cx + r, cy + r)
         left, right = self.pc_x[0] - 4, self.pc_x[1] + 4
-        net = NET_ONE_LINE_REGION if self.net_one_line else NET_REGION
-        for name, (top, bottom) in (*ROW_REGIONS.items(), ("net", net)):
-            regions[name] = (left, self.pc_top + top, right, self.pc_top + bottom)
+        lines = [*((name, y, ROW_REGION) for name, y in self.rows_y.items()), ("net", self.net_y, NET_REGION)]
+        for name, y, (top, bottom) in lines:
+            regions[name] = (left, self.pc_top + y + top, right, self.pc_top + y + bottom)
         return regions
 
 
 LANDSCAPE = Layout(
     size=(480, 320), claude_card=(8, 8, 227, 311), pc_card=(236, 8, 471, 311),
-    rings=((118, 110), (118, 246)), pc_x=(248, 460), pc_top=8, net_one_line=False,
+    rings=((118, 110), (118, 246)), pc_x=(248, 460), pc_top=8, pc_step=64,
 )
 PORTRAIT = Layout(
     size=(320, 480), claude_card=(8, 8, 311, 183), pc_card=(8, 192, 311, 471),
-    rings=((84, 108), (236, 108)), pc_x=(20, 299), pc_top=199, net_one_line=True,
+    rings=((84, 108), (236, 108)), pc_x=(20, 299), pc_top=199, pc_step=56,
 )
 
 
@@ -131,6 +143,21 @@ class Ring:
 
 
 @dataclass(frozen=True)
+class Split:
+    """Who fills one bar: computed by the app, only drawn here."""
+    parts: tuple[tuple[float, str], ...] = ()  # (fraction of the bar's value, colour), left to right
+    legend: tuple[tuple[str, str], ...] = ()  # (application, colour), the biggest first
+
+
+@dataclass(frozen=True)
+class Apps:
+    gpu: Split = Split()
+    cpu: Split = Split()
+    memory: Split = Split()
+    disk: tuple[str, str, str] | None = None  # who moves the most bytes: application, colour, rate
+
+
+@dataclass(frozen=True)
 class View:
     now: datetime
     pulse: float  # 0..1, breathing dot opacity
@@ -141,6 +168,7 @@ class View:
     texts: Texts
     gpu_label: str  # e.g. 'GPU 4080 S'
     disk_label: str = "C:"
+    apps: Apps | None = None  # None: whole bars, no names
 
 
 def mix(a: str, b: str, t: float) -> tuple[int, int, int]:
@@ -211,65 +239,109 @@ def _fitted_mono(d: ImageDraw.ImageDraw, text: str, size: int, width: int):
 
 
 class _Pc:
-    """The PC column: rows of label, value and bar, positioned by the layout."""
+    """The PC column: rows of label, value, bar and legend, positioned by the layout."""
 
-    def __init__(self, d: ImageDraw.ImageDraw, s: Scene):
-        self.d, self.s = d, s
+    def __init__(self, img: Image.Image, d: ImageDraw.ImageDraw, s: Scene):
+        self.img, self.d, self.s = img, d, s
         self.x0, self.x1 = s.x(s.layout.pc_x[0]), s.x(s.layout.pc_x[1])
 
     def y(self, offset: int) -> int:
         return self.s.y(self.s.layout.pc_top + offset)
 
-    def bar(self, offset: int, percent: float | None, color: str) -> None:
+    def bar(self, offset: int, percent: float | None, color: str, split: Split = Split()) -> None:
+        """The track, then the value: whole in `color`, or cut into each application's part."""
         y, h, radius = self.y(offset), self.s.px(BAR_HEIGHT), self.s.px(3)
         self.d.rounded_rectangle((self.x0, y, self.x1, y + h - 1), radius=radius, fill=theme.TRACK)
         if percent is None or percent <= 0:
             return
-        x1 = self.x0 + max(h, round((self.x1 - self.x0) * min(percent, 100) / 100))
-        self.d.rounded_rectangle((self.x0, y, x1, y + h - 1), radius=radius, fill=color)
+        width = max(h, round((self.x1 - self.x0) * min(percent, 100) / 100))
+        if not split.parts:
+            self.d.rounded_rectangle((self.x0, y, self.x0 + width, y + h - 1), radius=radius, fill=color)
+            return
+        strip = Image.new("RGB", (width + 1, h), theme.OTHERS)  # what no named application covers
+        draw, left = ImageDraw.Draw(strip), 0.0
+        for fraction, part_color in split.parts:
+            right = left + width * fraction
+            if round(right) > round(left):
+                draw.rectangle((round(left), 0, round(right) - 1, h - 1), fill=part_color)
+            left = right
+        mask = Image.new("L", strip.size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, width, h - 1), radius=radius, fill=255)
+        self.img.paste(strip, (self.x0, y), mask)
 
     def row(self, offset: int, label: str, value: str, color: str = theme.TEXT, size: int = 16) -> None:
         y = self.y(offset)
         self.d.text((self.x0, y), label.upper(), font=theme.sans(self.s.px(12)), fill=theme.LABEL, anchor="ls")
         self.d.text((self.x1, y), value, font=theme.mono(self.s.px(size)), fill=color, anchor="rs")
 
-    def net(self, down: str, up: str, label: str) -> None:
-        if not self.s.layout.net_one_line:
-            self.row(NET_Y, label, down)
-            self.row(NET_UP_Y, "", up, theme.LABEL)
-            return
-        self.row(NET_Y, label, up, theme.LABEL)
-        font = theme.mono(self.s.px(16))
-        gap = self.s.px(12)
-        self.d.text((self.x1 - font.getlength(up) - gap, self.y(NET_Y)), down, font=font, fill=theme.TEXT,
-                    anchor="rs")
+    def legend(self, offset: int, entries: tuple[tuple[str, str], ...], value: str | None = None) -> None:
+        """Up to two applications, each with its colour dot, side by side; or one, and its value
+        kept whole at the right edge (the disk's rate)."""
+        y, font = self.y(offset), theme.sans(self.s.px(11))
+        dot, gap = self.s.px(6), self.s.px(4)
+        width = (self.x1 - self.x0) // 2
+        if value is not None:
+            value_font = theme.mono(self.s.px(12))
+            self.d.text((self.x1, y), value, font=value_font, fill=theme.TEXT, anchor="rs")
+            width = self.x1 - self.x0 - round(value_font.getlength(value))
+        for i, (name, color) in enumerate(entries[:1 if value is not None else 2]):
+            x = self.x0 + i * width
+            self.d.ellipse((x, y - dot - self.s.px(1), x + dot, y - self.s.px(1)), fill=color)
+            text = _fit(self.d, name, font, width - dot - gap - self.s.px(6))
+            self.d.text((x + dot + gap, y), text, font=font, fill=theme.TEXT, anchor="ls")
+
+    def net(self, down: str, up: str) -> None:
+        font, y = theme.mono(self.s.px(16)), self.y(self.s.layout.net_y)
+        self.d.text((self.x0, y), down, font=font, fill=theme.TEXT, anchor="ls")
+        self.d.text((self.x1, y), up, font=font, fill=theme.LABEL, anchor="rs")
 
 
-def _pc(d: ImageDraw.ImageDraw, s: Scene, view: View) -> None:
-    pc, t, col = view.pc, view.texts, _Pc(d, s)
+def _fit(d: ImageDraw.ImageDraw, text: str, font, width: int) -> str:
+    """`text`, cut with an ellipsis if it is wider than `width` pixels."""
+    if d.textlength(text, font=font) <= width:
+        return text
+    while len(text) > 1 and d.textlength(text + "…", font=font) > width:
+        text = text[:-1]
+    return text.rstrip() + "…"
+
+
+def _pc(img: Image.Image, d: ImageDraw.ImageDraw, s: Scene, view: View) -> None:
+    pc, t, col = view.pc, view.texts, _Pc(img, d, s)
     if pc is None:
-        for offset in (GPU_Y, *(y for y, _ in ROWS_Y.values()), NET_Y):
+        for offset in (*s.layout.rows_y.values(), s.layout.net_y):
             col.row(offset, "…", "?", theme.LABEL)
         return
-    temp = "?" if pc.gpu_temp is None else f"{pc.gpu_temp:.0f}°"
-    col.row(GPU_Y, view.gpu_label, temp, fmt.gpu_temp_color(pc.gpu_temp), size=26)
-    col.row(GPU_USAGE_Y, t.usage, fmt.percent(pc.gpu_util))
-    col.bar(GPU_BAR_Y, pc.gpu_util, fmt.severity_color(pc.gpu_util, theme.BLUE))
+    apps, rows = view.apps or Apps(), s.layout.rows_y
 
-    y, bar = ROWS_Y["cpu"]
-    col.row(y, "CPU", fmt.percent(pc.cpu))
-    col.bar(bar, pc.cpu, fmt.severity_color(pc.cpu, theme.BLUE))
+    y = rows["gpu"]
+    col.row(y, view.gpu_label, fmt.percent(pc.gpu_util), fmt.severity_color(pc.gpu_util, theme.TEXT))
+    temp = "?" if pc.gpu_temp is None else f"{pc.gpu_temp:.0f}°"
+    value_font = theme.mono(s.px(16))
+    d.text((col.x1 - value_font.getlength(fmt.percent(pc.gpu_util)) - s.px(12), col.y(y)), temp,
+           font=value_font, fill=fmt.gpu_temp_color(pc.gpu_temp), anchor="rs")
+    col.bar(y + BAR_DY, pc.gpu_util, fmt.severity_color(pc.gpu_util, theme.BLUE), apps.gpu)
+    col.legend(y + LEGEND_DY, apps.gpu.legend)
+
+    y = rows["cpu"]
+    col.row(y, "CPU", fmt.percent(pc.cpu), fmt.severity_color(pc.cpu, theme.TEXT))
+    col.bar(y + BAR_DY, pc.cpu, fmt.severity_color(pc.cpu, theme.BLUE), apps.cpu)
+    col.legend(y + LEGEND_DY, apps.cpu.legend)
 
     mem_pct = 100 * pc.mem_used_gb / pc.mem_total_gb if pc.mem_total_gb else None
-    y, bar = ROWS_Y["mem"]
-    col.row(y, t.memory, f"{pc.mem_used_gb:.0f}/{pc.mem_total_gb:.0f} {t.gigabytes}")
-    col.bar(bar, mem_pct, fmt.severity_color(mem_pct, theme.BLUE))
+    y = rows["mem"]
+    col.row(y, t.memory, f"{pc.mem_used_gb:.0f}/{pc.mem_total_gb:.0f} {t.gigabytes}",
+            fmt.severity_color(mem_pct, theme.TEXT))
+    col.bar(y + BAR_DY, mem_pct, fmt.severity_color(mem_pct, theme.BLUE), apps.memory)
+    col.legend(y + LEGEND_DY, apps.memory.legend)
 
-    y, bar = ROWS_Y["disk"]
-    col.row(y, f"{t.disk} {view.disk_label}", fmt.percent(pc.disk))
-    col.bar(bar, pc.disk, fmt.severity_color(pc.disk, theme.BLUE))
+    y = rows["disk"]
+    col.row(y, f"{t.disk} {view.disk_label}", fmt.percent(pc.disk), fmt.severity_color(pc.disk, theme.TEXT))
+    col.bar(y + BAR_DY, pc.disk, fmt.severity_color(pc.disk, theme.BLUE))
+    if apps.disk:  # the disk bar is its filling; the legend says who reads or writes the most
+        name, color, rate = apps.disk
+        col.legend(y + LEGEND_DY, ((name, color),), rate)
 
-    col.net("↓" + fmt.rate(pc.net_down, t), "↑" + fmt.rate(pc.net_up, t), t.network)
+    col.net("↓" + fmt.rate(pc.net_down, t), "↑" + fmt.rate(pc.net_up, t))
 
 
 def render(view: View, scene: Scene | None = None) -> Image.Image:
@@ -285,5 +357,5 @@ def render(view: View, scene: Scene | None = None) -> Image.Image:
 
     _ring(img, d, s, view.session, s.layout.rings[0], view.now, view.texts)
     _ring(img, d, s, view.week, s.layout.rings[1], view.now, view.texts)
-    _pc(d, s, view)
+    _pc(img, d, s, view)
     return img

@@ -18,10 +18,14 @@ D'un côté, la **consommation de ton abonnement Claude** ; de l'autre, le PC.
 - **Le PC d'un coup d'œil.** Température et charge de la carte graphique, processeur, mémoire,
   disque et réseau, chacun avec une fine barre. Les valeurs glissent vers chaque nouvelle mesure
   au lieu de sauter.
+- **Qui consomme.** Les barres de la carte graphique, du processeur et de la mémoire sont
+  partagées par logiciel, une couleur chacun, les deux plus gros nommés dessous ; sous le disque,
+  le logiciel qui lit ou écrit le plus. Les processus sont regroupés (cinquante `claude.exe` font
+  un seul « Claude », ceux de Windows deviennent « Windows »).
 - **Honnête.** Une valeur inconnue s'affiche « ? » en gris, jamais un chiffre périmé.
 - **Toutes tailles, dans les deux sens.** La mise en page est redessinée nette à la résolution de
   l'écran, en paysage ou en portrait (Claude en haut), et tient dans le cercle d'un écran rond.
-- **Léger.** Environ 2 % d'un cœur. Le lien USB est lent (1,2 s pour une image complète en 3,5") :
+- **Léger.** Environ 2 à 6 % d'un cœur. Le lien USB est lent (1,2 s pour une image complète en 3,5") :
   l'image est dessinée en mémoire et seules les zones qui ont changé sont envoyées.
 - **Deux langues.** Français par défaut, anglais avec `--lang en`.
 

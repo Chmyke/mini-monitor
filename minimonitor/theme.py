@@ -24,6 +24,13 @@ GREEN = "#40C780"
 RED = "#ED4F5C"
 BLUE = "#5099F4"
 YELLOW = "#FAC042"
+PURPLE = "#B57EDC"
+CYAN = "#4FC1C9"
+PINK = "#F07EB4"
+# One colour per application in the split bars (never red: red means "too high"),
+# and the rest of the bar, what the named applications do not cover.
+APP_COLORS = (BLUE, YELLOW, GREEN, PURPLE, CYAN, PINK)
+OTHERS = "#3a4450"
 
 # Every number uses a fixed-width font, so values do not dance as they change.
 MONO = ("consolab.ttf", "DejaVuSansMono-Bold.ttf", "LiberationMono-Bold.ttf", "NotoSansMono-Bold.ttf",

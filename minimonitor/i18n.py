@@ -15,7 +15,6 @@ class Texts:
     usage: str
     memory: str
     disk: str
-    network: str
     gigabytes: str
     kilobytes_per_s: str
     megabytes_per_s: str
@@ -25,13 +24,13 @@ class Texts:
 
 FR = Texts(
     session="SESSION 5 H", model="MODÈLE", week="SEMAINE", signin="À RECONNECTER", usage="utilisation", memory="Mémoire", disk="Disque",
-    network="Réseau", gigabytes="Go", kilobytes_per_s="Ko/s", megabytes_per_s="Mo/s", day="j",
+    gigabytes="Go", kilobytes_per_s="Ko/s", megabytes_per_s="Mo/s", day="j",
     decimal=",",
 )
 
 EN = Texts(
     session="5 H SESSION", model="MODEL", week="WEEK", signin="SIGN IN AGAIN", usage="usage", memory="Memory", disk="Disk",
-    network="Network", gigabytes="GB", kilobytes_per_s="kB/s", megabytes_per_s="MB/s", day="d",
+    gigabytes="GB", kilobytes_per_s="kB/s", megabytes_per_s="MB/s", day="d",
     decimal=".",
 )
 

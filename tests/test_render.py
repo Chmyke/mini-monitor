@@ -7,7 +7,7 @@ from PIL import Image, ImageChops, ImageDraw
 from minimonitor import theme
 from minimonitor.i18n import EN, FR
 from minimonitor.pc import Snapshot
-from minimonitor.render import LANDSCAPE, PORTRAIT, Ring, View, render, scene_for
+from minimonitor.render import LANDSCAPE, PORTRAIT, Apps, Ring, Split, View, render, scene_for
 from minimonitor.usage import Window
 
 NOW = datetime(2026, 10, 17, 12, tzinfo=timezone.utc)
@@ -16,8 +16,15 @@ SIZES = [(480, 320), (320, 480), (800, 480), (480, 800), (1024, 600), (600, 1024
          (480, 1920), (640, 640), (300, 200), (1280, 720)]
 
 
+# Who fills the bars, with a name too long for its half of the legend.
+APPS = Apps(gpu=Split(((0.6, theme.BLUE), (0.3, theme.YELLOW)), (("Blender", theme.BLUE), ("Darkomen client de jeu", theme.YELLOW))),
+            cpu=Split(((0.5, theme.GREEN), (0.2, theme.BLUE), (0.1, theme.PURPLE)), (("Rust", theme.GREEN), ("Blender", theme.BLUE))),
+            memory=Split(((1.0, theme.CYAN),), (("Claude", theme.CYAN),)),
+            disk=("Rust", theme.GREEN, "480 Mo/s"))
+
+
 def view(pct: float | None, pc: Snapshot | None, pulse: float, glow: float, texts=FR, disk="C:",
-         note: str | None = None) -> View:
+         note: str | None = None, apps: Apps | None = None) -> View:
     w = Window(pct, NOW + timedelta(hours=1, minutes=29)) if pct is not None else None
     return View(
         now=NOW, pulse=pulse, live=w is not None,
@@ -27,6 +34,7 @@ def view(pct: float | None, pc: Snapshot | None, pulse: float, glow: float, text
         texts=texts,
         gpu_label="GPU 4080 S",
         disk_label=disk,
+        apps=apps,
     )
 
 
@@ -45,6 +53,8 @@ def assert_changes_stay_inside_regions(scene):
         render(view(12, IDLE, 0.7, 0, EN), scene),
         render(view(5, NO_DISK, 0.9, 0.1, EN), scene),
         render(view(None, IDLE, 0.4, 0, FR, note="claude auth login"), scene),
+        render(view(64, BUSY, 0.3, 0, FR, apps=APPS), scene),
+        render(view(30, IDLE, 0.3, 0, EN, apps=APPS), scene),
     ]
     mask = Image.new("L", scene.size, 255)
     draw = ImageDraw.Draw(mask)

@@ -53,6 +53,19 @@ class NvidiaGpu:
         except pynvml.NVMLError:
             return None, None
 
+    def process_loads(self, seconds: float) -> dict[int, float] | None:
+        """{pid: percent of the GPU} averaged over the last `seconds`; None if the driver will not say."""
+        since = int((time.time() - seconds) * 1_000_000)
+        try:
+            samples = pynvml.nvmlDeviceGetProcessUtilization(self._handle, since)
+        except pynvml.NVMLError as e:
+            # No process used the GPU in the window: the driver says "not found".
+            return {} if isinstance(e, pynvml.NVMLError_NotFound) else None
+        loads: dict[int, list[int]] = {}
+        for sample in samples:
+            loads.setdefault(sample.pid, []).append(sample.smUtil)
+        return {pid: sum(values) / len(values) for pid, values in loads.items()}
+
 
 AMD_VENDOR = "0x1002"
 
@@ -117,6 +130,8 @@ class PcSampler:
         self.disk_path = disk_path or default_disk()
         self._gpu = gpu if gpu is not None else open_gpu()
         self.gpu_name: str | None = self._gpu.name if self._gpu else None
+        # {pid: percent of the GPU} over the last seconds, when the driver tells (NVIDIA only).
+        self.gpu_process_loads = getattr(self._gpu, "process_loads", None)
         psutil.cpu_percent(None)  # first call primes the counter
         self._net = psutil.net_io_counters()
         self._net_time = time.monotonic()

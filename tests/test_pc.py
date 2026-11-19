@@ -73,3 +73,20 @@ def test_posix_disk_label():
     assert pc.default_disk() == "/"
     assert pc.disk_label("/") == "/"
     assert pc.disk_label("/home/") == "/home"
+
+
+def test_gpu_loads_per_process_average_the_driver_samples(monkeypatch):
+    from types import SimpleNamespace
+
+    from minimonitor import pc as pc_mod
+    gpu = pc_mod.NvidiaGpu.__new__(pc_mod.NvidiaGpu)
+    gpu._handle = None
+    samples = [SimpleNamespace(pid=3, smUtil=40), SimpleNamespace(pid=3, smUtil=60), SimpleNamespace(pid=5, smUtil=2)]
+    monkeypatch.setattr(pc_mod.pynvml, "nvmlDeviceGetProcessUtilization", lambda h, since: samples)
+    assert gpu.process_loads(3) == {3: 50.0, 5: 2.0}
+
+    def idle(h, since):
+        raise pc_mod.pynvml.NVMLError_NotFound()
+
+    monkeypatch.setattr(pc_mod.pynvml, "nvmlDeviceGetProcessUtilization", idle)
+    assert gpu.process_loads(3) == {}  # nobody used the GPU: an empty bar split, not unknown

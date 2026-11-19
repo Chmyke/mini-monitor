@@ -17,11 +17,14 @@ Windows and Linux. No screen? It also runs in a window on the desktop. One half 
   75 % and red from 90 %.
 - **The PC at a glance.** GPU temperature and load, CPU, memory, disk and network, each with a
   thin bar. Values glide to each new sample instead of jumping.
+- **Who uses it.** The GPU, CPU and memory bars are split by application, one colour each,
+  with the two biggest named underneath; under the disk, the application reading or writing the
+  most. Processes are grouped (fifty `claude.exe` are one "Claude", Windows' own are "Windows").
 - **Honest.** An unknown value is a grey `?`, never a stale number: if the usage request fails or
   a reset time has passed, the ring says so.
 - **Any size, either way up.** The layout is redrawn sharp at the screen's own resolution, in
   landscape or in portrait (Claude on top), and fits inside the circle of a round screen.
-- **Light.** About 2 % of one CPU core. The USB link is slow (a full 3.5" frame takes 1.2 s), so
+- **Light.** About 2 to 6 % of one CPU core. The USB link is slow (a full 3.5" frame takes 1.2 s), so
   each frame is drawn in memory and only the rectangles that changed are sent.
 - **Two languages.** French by default, English with `--lang en`.
 

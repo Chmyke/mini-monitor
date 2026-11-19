@@ -76,3 +76,33 @@ def short_gpu_name(name: str | None) -> str:
              if w.upper() not in ("RTX", "GTX", "AMD", "RADEON", "INTEL", "ARC")]
     words = ["S" if w.upper() == "SUPER" else w for w in words]
     return " ".join(["GPU", *words])[:14]
+
+
+def split(total: float | None, shares: tuple[tuple[str, float], ...]) -> tuple[tuple[str, float], ...]:
+    """Each application's part of a bar, as fractions of its value (sum at most 1).
+
+    The per-process counters and the machine total are read differently and do not add up
+    exactly: when the named applications exceed the total they share the whole bar.
+    """
+    if not total or total <= 0 or not shares:
+        return ()
+    fractions = [(name, max(value, 0) / total) for name, value in shares]
+    covered = sum(f for _, f in fractions)
+    if covered > 1:
+        fractions = [(name, f / covered) for name, f in fractions]
+    return tuple((name, f) for name, f in fractions if f > 0)
+
+
+def assign_colors(previous: dict[str, str], names: list[str], palette: tuple[str, ...]) -> dict[str, str]:
+    """A colour per application that stays the same while it stays on screen.
+
+    Names keep their previous colour; new ones take the first free colour; past the palette
+    they get none (drawn with the rest of the bar).
+    """
+    kept = {name: previous[name] for name in names if name in previous}
+    free = [color for color in palette if color not in kept.values()]
+    for name in names:
+        if name not in kept and free:
+            kept[name] = free.pop(0)
+    return kept
+

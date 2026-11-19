@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 
 from . import fmt, theme, usage
 from .i18n import FR, Texts
-from .app import SIGNIN_COMMAND, first_ring, fresh
+from . import procs
+from .app import SIGNIN_COMMAND, apps_view, first_ring, fresh
 from .auth import TokenSource
 from .pc import PcSampler, disk_label
 from .render import Ring, View, render, scene_for
@@ -17,19 +18,25 @@ from .render import Ring, View, render, scene_for
 def write_preview(path: str, texts: Texts = FR, size: tuple[int, int] = (480, 320),
                   disk_path: str | None = None) -> None:
     sampler = PcSampler(disk_path)
-    time.sleep(1)  # CPU and network rates need a measurement interval
+    watcher = procs.Watcher(sampler.gpu_process_loads, start=False)
+    watcher.step()
+    time.sleep(1)  # CPU, network and per-application rates need a measurement interval
+    watcher.step()
     now = datetime.now(timezone.utc)
     tokens = TokenSource()
     latest = usage.fetch(tokens)
     signed_out = latest is None and tokens.signed_out
     s, first_label = first_ring(latest, now, texts, signed_out)
     w = fresh(latest.week, now) if latest else None
+    pc = sampler.sample()
+    apps, _ = apps_view(watcher.latest(), pc, {}, texts)
     view = View(
         now=now, pulse=1.0, live=s is not None or w is not None,
         session=Ring(s, s.percent if s else 0, 0, theme.BLUE, first_label,
                      SIGNIN_COMMAND if signed_out else None),
         week=Ring(w, w.percent if w else 0, 0, theme.GREEN, texts.week),
-        pc=sampler.sample(),
+        pc=pc,
+        apps=apps,
         texts=texts,
         gpu_label=fmt.short_gpu_name(sampler.gpu_name),
         disk_label=disk_label(sampler.disk_path),

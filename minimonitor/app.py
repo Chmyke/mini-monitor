@@ -17,12 +17,12 @@ from datetime import datetime, timezone
 from typing import Callable
 
 
-from . import fmt, theme, usage
+from . import fmt, procs, theme, usage
 from .auth import TokenSource
 from .i18n import FR, Texts
 from .link import Display, ScreenLink
 from .pc import PcSampler, Snapshot, disk_label
-from .render import Ring, View, render, scene_for
+from .render import Apps, Ring, Split, View, render, scene_for
 
 TICK = 0.1  # seconds between frames
 PC_PERIOD = 1.0
@@ -37,6 +37,7 @@ SNAP = 0.05
 WAKE_GAP_SECONDS = 30.0
 SLOW_TICK_SECONDS = 2.0
 SIGNIN_COMMAND = "claude auth login"
+DISK_NAMED_FROM = 1_000_000  # bytes/s: below this, nobody is named under the disk bar
 
 log = logging.getLogger(__name__)
 
@@ -123,6 +124,30 @@ def stale(latest: usage.Usage | None, now: datetime) -> bool:
     return any(w is not None and fresh(w, now) is None for w in (latest.session, latest.model, latest.week))
 
 
+def apps_view(found: procs.Usage | None, pc: Snapshot | None, colors: dict[str, str],
+              texts: Texts) -> tuple[Apps | None, dict[str, str]]:
+    """Who fills each bar, and the colours each application keeps while it stays on screen."""
+    if found is None or pc is None:
+        return None, colors
+    total_bytes = pc.mem_total_gb * 1024 ** 3
+    mem_pct = 100 * pc.mem_used_gb / pc.mem_total_gb if pc.mem_total_gb else None
+    memory = tuple((name, 100 * b / total_bytes) for name, b in found.memory) if total_bytes else ()
+    gpu = fmt.split(pc.gpu_util, found.gpu or ())
+    cpu = fmt.split(pc.cpu, found.cpu)
+    mem = fmt.split(mem_pct, memory)
+    disk = found.disk if found.disk and found.disk[1] >= DISK_NAMED_FROM else None
+    names = list(dict.fromkeys(name for name, _ in (*cpu, *gpu, *mem, *([disk] if disk else []))))
+    colors = fmt.assign_colors(colors, names, theme.APP_COLORS)
+
+    def bar(parts: tuple[tuple[str, float], ...]) -> Split:
+        named = [(name, fraction) for name, fraction in parts if name in colors]
+        return Split(tuple((fraction, colors[name]) for name, fraction in named),
+                     tuple((name, colors[name]) for name, _ in named[:2]))
+
+    shown_disk = (disk[0], colors[disk[0]], fmt.rate(disk[1], texts)) if disk and disk[0] in colors else None
+    return Apps(gpu=bar(gpu), cpu=bar(cpu), memory=bar(mem), disk=shown_disk), colors
+
+
 class UsagePoller:
     """Fetches Claude usage in the background so a slow network never freezes the screen."""
 
@@ -169,6 +194,8 @@ def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts 
     gpu_label = fmt.short_gpu_name(sampler.gpu_name)
     disk = disk_label(sampler.disk_path)
     poller = UsagePoller()
+    watcher = procs.Watcher(sampler.gpu_process_loads)
+    colors: dict[str, str] = {}
     session, week = Gauge(), Gauge()
     last_label: str | None = None
     snapshot, displayed, next_pc = None, None, 0.0
@@ -197,6 +224,7 @@ def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts 
         session.set(s.percent if s else None, tick)
         week.set(w.percent if w else None, tick)
 
+        apps, colors = apps_view(watcher.latest(), displayed, colors, texts)
         view = View(
             now=now,
             pulse=pulse(tick - t0),
@@ -208,6 +236,7 @@ def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts 
             texts=texts,
             gpu_label=gpu_label,
             disk_label=disk,
+            apps=apps,
         )
         rendered = shown = time.monotonic()
         if link.ready():  # the frame is drawn at the size of whatever screen is connected
