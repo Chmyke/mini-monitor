@@ -154,3 +154,39 @@ def test_rewritten_credentials_are_private(tmp_path):
     path = tmp_path / "credentials.json"
     auth.write_atomic(path, {"a": 1})
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_refused_refresh_token_means_sign_in_again(tmp_path):
+    path = tmp_path / "c.json"
+    write(path, expiresAt=NOW - 1)
+    src = source(FakeServer(error=auth.RefreshError("HTTP 400 invalid_grant", signed_out=True)), path)
+    assert src.access_token() is None and src.signed_out
+    write(path, expiresAt=NOW + 60 * 60_000)  # Mickael ran `claude auth login`
+    assert src.access_token() == "old-access" and not src.signed_out
+
+
+def test_a_network_failure_is_not_a_sign_out(tmp_path):
+    path = tmp_path / "c.json"
+    write(path, expiresAt=NOW - 1)
+    src = source(FakeServer(error=auth.RefreshError("URLError")), path)
+    assert src.access_token() is None and not src.signed_out
+
+
+def test_missing_credentials_mean_sign_in(tmp_path):
+    src = source(FakeServer(), tmp_path / "missing.json")
+    src.access_token()
+    assert src.signed_out
+
+
+@pytest.mark.parametrize("body, signed_out", [(b'{"error": "invalid_grant"}', True), (b'{"error": "server_error"}', False)])
+def test_server_refusal_of_the_refresh_token_is_recognised(monkeypatch, body, signed_out):
+    import io
+    import urllib.error
+
+    def refuse(req, timeout):
+        raise urllib.error.HTTPError(auth.TOKEN_URL, 400, "Bad Request", {}, io.BytesIO(body))
+
+    monkeypatch.setattr(auth.urllib.request, "urlopen", refuse)
+    with pytest.raises(auth.RefreshError) as e:
+        auth.post_json(auth.TOKEN_URL, {}, 1)
+    assert e.value.signed_out is signed_out

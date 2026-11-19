@@ -11,6 +11,7 @@ class Texts:
     session: str
     model: str  # first ring when the plan has a model limit whose name is unknown
     week: str
+    signin: str  # first ring when only a new sign-in can bring the numbers back
     usage: str
     memory: str
     disk: str
@@ -23,13 +24,13 @@ class Texts:
 
 
 FR = Texts(
-    session="SESSION 5 H", model="MODÈLE", week="SEMAINE", usage="utilisation", memory="Mémoire", disk="Disque",
+    session="SESSION 5 H", model="MODÈLE", week="SEMAINE", signin="À RECONNECTER", usage="utilisation", memory="Mémoire", disk="Disque",
     network="Réseau", gigabytes="Go", kilobytes_per_s="Ko/s", megabytes_per_s="Mo/s", day="j",
     decimal=",",
 )
 
 EN = Texts(
-    session="5 H SESSION", model="MODEL", week="WEEK", usage="usage", memory="Memory", disk="Disk",
+    session="5 H SESSION", model="MODEL", week="WEEK", signin="SIGN IN AGAIN", usage="usage", memory="Memory", disk="Disk",
     network="Network", gigabytes="GB", kilobytes_per_s="kB/s", megabytes_per_s="MB/s", day="d",
     decimal=".",
 )

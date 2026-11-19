@@ -16,11 +16,12 @@ SIZES = [(480, 320), (320, 480), (800, 480), (480, 800), (1024, 600), (600, 1024
          (480, 1920), (640, 640), (300, 200), (1280, 720)]
 
 
-def view(pct: float | None, pc: Snapshot | None, pulse: float, glow: float, texts=FR, disk="C:") -> View:
+def view(pct: float | None, pc: Snapshot | None, pulse: float, glow: float, texts=FR, disk="C:",
+         note: str | None = None) -> View:
     w = Window(pct, NOW + timedelta(hours=1, minutes=29)) if pct is not None else None
     return View(
         now=NOW, pulse=pulse, live=w is not None,
-        session=Ring(w, pct or 0, glow, theme.BLUE, "SESSION 5 H"),
+        session=Ring(w, pct or 0, glow, theme.BLUE, texts.signin if note else "SESSION 5 H", note),
         week=Ring(w, pct or 0, glow, theme.GREEN, "SEMAINE"),
         pc=pc,
         texts=texts,
@@ -43,6 +44,7 @@ def assert_changes_stay_inside_regions(scene):
         render(view(77.7, BUSY, 0.2, 0.5), scene),
         render(view(12, IDLE, 0.7, 0, EN), scene),
         render(view(5, NO_DISK, 0.9, 0.1, EN), scene),
+        render(view(None, IDLE, 0.4, 0, FR, note="claude auth login"), scene),
     ]
     mask = Image.new("L", scene.size, 255)
     draw = ImageDraw.Draw(mask)
@@ -127,3 +129,13 @@ def test_fonts_are_found_in_subfolders_too(monkeypatch, tmp_path):
     finally:
         theme.find.cache_clear()
         theme._installed.cache_clear()
+
+
+@pytest.mark.parametrize("texts", [FR, EN])
+def test_sign_in_command_fits_inside_the_ring(texts):
+    from minimonitor import render as r
+    img = Image.new("RGB", (480, 320))
+    d = ImageDraw.Draw(img)
+    for line in "claude auth login".rsplit(" ", 1):
+        font = r._fitted_mono(d, line, 15, r.NOTE_WIDTH)
+        assert font.size >= 13 and d.textlength(line, font=font) <= r.NOTE_WIDTH  # readable at 3.5"

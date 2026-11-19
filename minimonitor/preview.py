@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 
 from . import fmt, theme, usage
 from .i18n import FR, Texts
-from .app import first_ring, fresh
+from .app import SIGNIN_COMMAND, first_ring, fresh
+from .auth import TokenSource
 from .pc import PcSampler, disk_label
 from .render import Ring, View, render, scene_for
 
@@ -18,12 +19,15 @@ def write_preview(path: str, texts: Texts = FR, size: tuple[int, int] = (480, 32
     sampler = PcSampler(disk_path)
     time.sleep(1)  # CPU and network rates need a measurement interval
     now = datetime.now(timezone.utc)
-    latest = usage.fetch()
-    s, first_label = first_ring(latest, now, texts)
+    tokens = TokenSource()
+    latest = usage.fetch(tokens)
+    signed_out = latest is None and tokens.signed_out
+    s, first_label = first_ring(latest, now, texts, signed_out)
     w = fresh(latest.week, now) if latest else None
     view = View(
         now=now, pulse=1.0, live=s is not None or w is not None,
-        session=Ring(s, s.percent if s else 0, 0, theme.BLUE, first_label),
+        session=Ring(s, s.percent if s else 0, 0, theme.BLUE, first_label,
+                     SIGNIN_COMMAND if signed_out else None),
         week=Ring(w, w.percent if w else 0, 0, theme.GREEN, texts.week),
         pc=sampler.sample(),
         texts=texts,

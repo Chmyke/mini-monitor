@@ -36,6 +36,7 @@ SNAP = 0.05
 # Shorter stalls happen when the PC is busy; they are only logged.
 WAKE_GAP_SECONDS = 30.0
 SLOW_TICK_SECONDS = 2.0
+SIGNIN_COMMAND = "claude auth login"
 
 log = logging.getLogger(__name__)
 
@@ -99,10 +100,15 @@ def fresh(window: usage.Window | None, now: datetime) -> usage.Window | None:
     return window
 
 
-def first_ring(latest: usage.Usage | None, now: datetime, texts: Texts) -> tuple[usage.Window | None, str]:
-    """What the first ring shows: the session limit when the plan has one, else the model limit."""
+def first_ring(latest: usage.Usage | None, now: datetime, texts: Texts,
+               signed_out: bool = False, last_label: str | None = None) -> tuple[usage.Window | None, str]:
+    """What the first ring shows: the session limit when the plan has one, else the model limit.
+
+    Without a reading it keeps the last label seen (a network hiccup does not turn 'FABLE' back
+    into 'SESSION 5 H'), unless only a new sign-in can help: then it says so.
+    """
     if latest is None:
-        return None, texts.session
+        return None, texts.signin if signed_out else (last_label or texts.session)
     if latest.session is not None:
         return fresh(latest.session, now), texts.session
     if latest.model is not None:
@@ -124,6 +130,7 @@ class UsagePoller:
         self._period = period
         self._lock = threading.Lock()
         self._usage: usage.Usage | None = None
+        self._signed_out = False
         self._wake = threading.Event()
         self._tokens = TokenSource()  # one owner: only this thread renews the token
         threading.Thread(target=self._run, daemon=True).start()
@@ -134,6 +141,7 @@ class UsagePoller:
             result = usage.fetch(self._tokens)
             with self._lock:
                 self._usage = result
+                self._signed_out = result is None and self._tokens.signed_out
             state = "ok" if result else (self._tokens.last_error or "usage request failed")
             if state != reported:
                 log.log(logging.INFO if state == "ok" else logging.WARNING, "Claude usage: %s", state)
@@ -144,6 +152,11 @@ class UsagePoller:
     def latest(self) -> usage.Usage | None:
         with self._lock:
             return self._usage
+
+    def signed_out(self) -> bool:
+        """No reading, and only a new sign-in (`claude auth login`) can bring one back."""
+        with self._lock:
+            return self._signed_out
 
     def refresh_now(self) -> None:
         self._wake.set()
@@ -157,6 +170,7 @@ def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts 
     disk = disk_label(sampler.disk_path)
     poller = UsagePoller()
     session, week = Gauge(), Gauge()
+    last_label: str | None = None
     snapshot, displayed, next_pc = None, None, 0.0
     t0 = previous_tick = time.monotonic()
     while True:
@@ -173,7 +187,10 @@ def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts 
 
         now = datetime.now(timezone.utc)
         latest = poller.latest()
-        s, first_label = first_ring(latest, now, texts)
+        signed_out = poller.signed_out()
+        s, first_label = first_ring(latest, now, texts, signed_out, last_label)
+        if latest is not None:
+            last_label = first_label
         w = fresh(latest.week, now) if latest else None
         if stale(latest, now):
             poller.refresh_now()
@@ -184,7 +201,8 @@ def run(open_display: Callable[[], Display], brightness: int = 60, texts: Texts 
             now=now,
             pulse=pulse(tick - t0),
             live=s is not None or w is not None,
-            session=Ring(s, session.shown(tick), session.glow(tick), theme.BLUE, first_label),
+            session=Ring(s, session.shown(tick), session.glow(tick), theme.BLUE, first_label,
+                         SIGNIN_COMMAND if signed_out else None),
             week=Ring(w, week.shown(tick), week.glow(tick), theme.GREEN, texts.week),
             pc=displayed,
             texts=texts,

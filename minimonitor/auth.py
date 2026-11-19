@@ -34,7 +34,15 @@ Post = Callable[[str, dict, float], dict]
 
 
 class RefreshError(Exception):
-    """Renewal failed. The message never contains a token."""
+    """Renewal failed. The message never contains a token.
+
+    `signed_out` is True when the server refused the refresh token itself (expired or revoked):
+    retrying cannot help, only a new sign-in (`claude auth login`).
+    """
+
+    def __init__(self, message: str, signed_out: bool = False):
+        super().__init__(message)
+        self.signed_out = signed_out
 
 
 def now_ms() -> int:
@@ -115,7 +123,8 @@ def post_json(url: str, body: dict, timeout: float) -> dict:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             result = json.load(resp)
     except urllib.error.HTTPError as e:
-        raise RefreshError(f"HTTP {e.code} {_oauth_error(e)}".strip()) from None
+        code = _oauth_error(e)
+        raise RefreshError(f"HTTP {e.code} {code}".strip(), signed_out=code == "invalid_grant") from None
     except (OSError, ValueError) as e:
         raise RefreshError(type(e).__name__) from None
     if not isinstance(result, dict):
@@ -140,6 +149,7 @@ class TokenSource:
         self._clock = clock
         self._timeout = timeout
         self.last_error: str | None = None
+        self.signed_out = False  # only a new sign-in can bring the numbers back
 
     @property
     def path(self) -> Path:
@@ -150,13 +160,16 @@ class TokenSource:
         data = load(self.path)  # re-read every time: another program may have renewed it
         if data is None:
             self.last_error = "no credentials"
+            self.signed_out = True
             return None
         oauth = data["claudeAiOauth"]
         now = self._clock()
         if oauth["accessToken"] != rejected and not needs_refresh(oauth, now):
+            self.signed_out = False  # e.g. signed in again since the last refusal
             return oauth["accessToken"]
         if not isinstance(oauth.get("refreshToken"), str):
             self.last_error = "no refresh token"
+            self.signed_out = True
             return None
         try:
             response = self._post(TOKEN_URL, refresh_body(oauth), self._timeout)
@@ -164,8 +177,10 @@ class TokenSource:
             write_atomic(self.path, new)
         except (RefreshError, OSError) as e:
             self.last_error = f"refresh failed: {e if isinstance(e, RefreshError) else type(e).__name__}"
+            self.signed_out = isinstance(e, RefreshError) and e.signed_out
             # The current token may still have a few minutes left; an expired one is useless.
             still_valid = oauth["accessToken"] != rejected and not needs_refresh(oauth, now, margin=0)
             return oauth["accessToken"] if still_valid else None
         self.last_error = None
+        self.signed_out = False
         return new["claudeAiOauth"]["accessToken"]

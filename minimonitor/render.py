@@ -28,6 +28,8 @@ Box = tuple[int, int, int, int]  # x0, y0, x1, y1, inclusive
 
 RING_DIAMETER = 128
 RING_STROKE = 11
+# Width of the ring's hole at the height of the note's last line, minus a margin.
+NOTE_WIDTH = 86
 BAR_HEIGHT = 6
 DOT = (18, 20, 26, 28)
 # PC rows, as offsets from the top of the PC column: baselines, bars, and the
@@ -125,6 +127,7 @@ class Ring:
     glow: float  # 0..1, brief highlight after a value change
     accent: str
     title: str
+    note: str | None = None  # replaces the time left, e.g. the command that signs in again
 
 
 @dataclass(frozen=True)
@@ -184,6 +187,13 @@ def _ring(img: Image.Image, d: ImageDraw.ImageDraw, s: Scene, ring: Ring, center
     cx, cy = center
     img.paste(_ring_image(round(shown * 10), color, diameter, s.px(RING_STROKE)),
               (s.x(cx) - diameter // 2, s.y(cy) - diameter // 2))
+    if ring.note:  # no number to show: the title and what to do fill the ring's hole
+        d.text((s.x(cx), s.y(cy - 20)), ring.title, font=theme.sans(s.px(11)), fill=theme.LABEL, anchor="mm")
+        lines = ring.note.rsplit(" ", 1) if " " in ring.note else [ring.note]
+        for i, line in enumerate(lines):
+            d.text((s.x(cx), s.y(cy + 2 + 18 * i)), line, fill=theme.TEXT, anchor="mm",
+                   font=_fitted_mono(d, line, s.px(15), s.px(NOTE_WIDTH)))
+        return
     number = fmt.percent(shown) if known else "?"  # counts along with the ring fill
     number_color = mix(theme.TEXT, color, ring.glow) if known else theme.LABEL
     d.text((s.x(cx), s.y(cy - 10)), number, font=theme.mono(s.px(30)), fill=number_color, anchor="mm")
@@ -191,6 +201,13 @@ def _ring(img: Image.Image, d: ImageDraw.ImageDraw, s: Scene, ring: Ring, center
     left = fmt.remaining(ring.window.resets_at, now, texts) if known else "?"
     d.text((s.x(cx), s.y(cy + 29)), left, font=theme.mono(s.px(13)),
            fill=theme.TEXT if known else theme.LABEL, anchor="mm")
+
+
+def _fitted_mono(d: ImageDraw.ImageDraw, text: str, size: int, width: int):
+    """The largest monospace font, up to `size`, that keeps `text` inside the ring's hole."""
+    while size > 6 and d.textlength(text, font=theme.mono(size)) > width:
+        size -= 1
+    return theme.mono(size)
 
 
 class _Pc:

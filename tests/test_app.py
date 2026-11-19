@@ -83,6 +83,12 @@ def test_first_ring_is_the_model_limit_without_a_session():
     assert first_ring(None, now, FR) == (None, FR.session)
 
 
+def test_without_a_reading_the_first_ring_keeps_its_label_or_asks_to_sign_in():
+    now = datetime(2026, 11, 19, tzinfo=timezone.utc)
+    assert first_ring(None, now, FR, last_label="FABLE") == (None, "FABLE")  # network hiccup
+    assert first_ring(None, now, FR, signed_out=True, last_label="FABLE") == (None, FR.signin)
+
+
 def test_a_passed_reset_asks_for_a_new_reading():
     now = datetime(2026, 11, 11, tzinfo=timezone.utc)
     later = now + timedelta(days=1)
